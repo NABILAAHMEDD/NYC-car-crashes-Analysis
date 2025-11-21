@@ -59,12 +59,41 @@ if not os.path.exists(CSV_FILE) and CSV_URL:
 print("Loading data...")
 df = pd.read_csv(CSV_FILE)
 
+# Debug: Print column names to see what we have
+print(f"CSV columns: {list(df.columns)[:10]}...")  # Print first 10 columns
+
 # Convert date columns to datetime format
 # Using 'errors=coerce' to handle invalid dates gracefully (converts to NaT)
 # Decision: We use 'coerce' instead of 'raise' because some records may have
 # malformed dates, and we want to preserve other data in those records
-df['CRASH_DATE'] = pd.to_datetime(df['CRASH_DATE'], errors='coerce')
-df['CRASH DATE'] = pd.to_datetime(df['CRASH DATE'], errors='coerce')
+
+# Check which date column exists and standardize to 'CRASH_DATE'
+date_column = None
+if 'CRASH_DATE' in df.columns:
+    date_column = 'CRASH_DATE'
+elif 'CRASH DATE' in df.columns:
+    date_column = 'CRASH DATE'
+    # Rename to standard format
+    df['CRASH_DATE'] = pd.to_datetime(df['CRASH DATE'], errors='coerce')
+elif 'crash_date' in df.columns:
+    date_column = 'crash_date'
+    df['CRASH_DATE'] = pd.to_datetime(df['crash_date'], errors='coerce')
+elif 'Crash Date' in df.columns:
+    date_column = 'Crash Date'
+    df['CRASH_DATE'] = pd.to_datetime(df['Crash Date'], errors='coerce')
+else:
+    # Try to find any column with 'date' in the name (case insensitive)
+    date_cols = [col for col in df.columns if 'date' in col.lower()]
+    if date_cols:
+        date_column = date_cols[0]
+        df['CRASH_DATE'] = pd.to_datetime(df[date_column], errors='coerce')
+        print(f"Using date column: {date_column}")
+    else:
+        raise ValueError("No date column found in CSV file. Columns: " + str(list(df.columns)))
+
+# Convert to datetime if not already done
+if date_column != 'CRASH_DATE':
+    df['CRASH_DATE'] = pd.to_datetime(df['CRASH_DATE'], errors='coerce')
 
 # Extract year from crash date for filtering and time series analysis
 # This allows us to filter by year and create yearly trend visualizations
