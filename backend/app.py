@@ -108,7 +108,22 @@ if not os.path.exists(CSV_FILE) and CSV_URL:
         raise
 
 print("Loading data...")
-df = pd.read_csv(CSV_FILE)
+# For large files, load in chunks or sample to avoid memory issues
+# Free tier has limited RAM (512MB), so we'll load a sample first
+try:
+    # Try to load the full file
+    df = pd.read_csv(CSV_FILE)
+    print(f"Full file loaded: {len(df)} rows")
+except MemoryError:
+    print("Memory error loading full file, loading sample (first 100K rows)...")
+    df = pd.read_csv(CSV_FILE, nrows=100000)
+    print(f"Sample loaded: {len(df)} rows")
+
+# Alternative: Load in chunks if file is too large
+if len(df) > 500000:
+    print("File is very large, sampling to 100K rows for free tier...")
+    df = df.sample(n=100000, random_state=42)
+    print(f"Sampled to {len(df)} rows")
 
 # Debug: Print column names to see what we have
 print(f"CSV columns: {list(df.columns)[:10]}...")  # Print first 10 columns
