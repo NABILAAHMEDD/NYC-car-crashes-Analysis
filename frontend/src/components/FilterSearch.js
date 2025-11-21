@@ -11,16 +11,11 @@ function FilterSearch({ filters, setFilters, filterOptions, onSearch }) {
   const dropdownContainerBg = '#FFFFFF'; // var(--dashboard-bg-paper)
   const dropdownText = '#000000'; // Black text for options
   const dropdownSelectedText = '#3e7852'; // Green text for selected
-  const dropdownBorder = '#3e7852'; // Primary green border
   const dropdownHoverBg = 'rgba(62, 120, 82, 0.08)'; // Light green hover
   const dropdownSelectedBg = 'rgba(62, 120, 82, 0.16)'; // Light green background for selected
 
   const handleFilterChange = (field, value) => {
     setFilters({ ...filters, [field]: value });
-  };
-
-  const getDisplayName = (value) => {
-    return value || 'All';
   };
 
   const handleSearchSubmit = (e) => {
