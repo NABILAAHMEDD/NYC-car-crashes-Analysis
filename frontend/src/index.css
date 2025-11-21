@@ -1,0 +1,26 @@
+@import './theme.css';
+
+body {
+  margin: 0;
+  font-family: 'IBM Plex Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--dashboard-bg-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+  font-size: 13.125px; /* Base font size: 0.9375rem */
+}
+
+* {
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+code {
+  font-family: 'IBM Plex Sans', source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+* {
+  box-sizing: border-box;
+}

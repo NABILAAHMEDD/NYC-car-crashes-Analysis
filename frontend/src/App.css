@@ -1,0 +1,139 @@
+@import './theme.css';
+
+.App {
+  min-height: 100vh;
+  background: var(--dashboard-bg-body);
+}
+
+.app-header {
+  background: var(--dashboard-bg-paper);
+  padding: 24px;
+  border-bottom: 2px solid #3e7852;
+  box-shadow: var(--dashboard-shadow-xs);
+}
+
+.app-header h1 {
+  color: #3e7852;
+  margin: 0;
+  font-size: 1.75rem; /* 28px */
+  font-weight: 600;
+  font-family: 'IBM Plex Sans', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 12px; /* Better spacing between icon and text */
+  max-width: 89.10rem;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.2;
+}
+
+.app-header h1 .header-icon {
+  font-size: 1.875rem;
+  color: #3e7852;
+  width: 1.875rem;
+  height: 1.875rem;
+  flex-shrink: 0; /* Prevent icon from shrinking */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  max-width: 89.10rem; /* 1425.6px - compact width */
+  margin: var(--dashboard-spacing-8) auto;
+  padding: 0 var(--dashboard-spacing-8);
+}
+
+.error-message {
+  background: var(--dashboard-error-light);
+  color: white;
+  padding: var(--dashboard-spacing-4);
+  border-radius: var(--dashboard-radius-lg);
+  margin-bottom: var(--dashboard-spacing-4);
+  text-align: center;
+  box-shadow: var(--dashboard-shadow-xs);
+}
+
+.generate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dashboard-spacing-2);
+  width: 100%;
+  padding: 14px var(--dashboard-spacing-6);
+  background: #3e7852;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.125rem; /* 18px - bigger text */
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: var(--dashboard-spacing-8);
+  box-shadow: var(--dashboard-shadow-sm);
+  transition: all 0.2s ease;
+  font-family: 'IBM Plex Sans', sans-serif;
+  text-transform: none;
+}
+
+.generate-btn i {
+  font-size: 1.25rem; /* 20px - bigger icon */
+}
+
+.generate-btn:hover:not(:disabled) {
+  background: #366048;
+  box-shadow: var(--dashboard-shadow-md);
+}
+
+.generate-btn:active:not(:disabled) {
+  background: #2d4f3a;
+}
+
+.generate-btn:disabled {
+  background: var(--dashboard-text-disabled);
+  cursor: not-allowed;
+  transform: none;
+  opacity: 0.45;
+}
+
+.loading-indicator {
+  background: var(--dashboard-bg-paper);
+  padding: var(--dashboard-spacing-8);
+  border-radius: var(--dashboard-radius-lg);
+  text-align: center;
+  margin-bottom: var(--dashboard-spacing-8);
+  box-shadow: var(--dashboard-shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.circular-progress {
+  color: var(--dashboard-primary-main) !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .app-header {
+    padding: var(--dashboard-spacing-4);
+  }
+
+  .app-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .app-header h1 .header-icon {
+    font-size: 1.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .container {
+    padding: 0 var(--dashboard-spacing-4);
+  }
+
+  .generate-btn {
+    font-size: 0.875rem;
+    padding: 10px var(--dashboard-spacing-4);
+  }
+}
+

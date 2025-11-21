@@ -1,0 +1,261 @@
+/* Filters Container */
+.filters-container {
+  background: var(--dashboard-bg-paper);
+  padding: var(--dashboard-spacing-6);
+  border-radius: var(--dashboard-radius-lg);
+  margin-bottom: var(--dashboard-spacing-8);
+  box-shadow: var(--dashboard-shadow-md);
+  border: 1px solid var(--dashboard-border-divider);
+}
+
+.filters-container h2 {
+  margin-bottom: var(--dashboard-spacing-4);
+  margin-top: 0;
+  color: #000000; /* Black */
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 500;
+  font-size: 1.5rem; /* H4: 24px */
+  display: flex;
+  align-items: center;
+  gap: var(--dashboard-spacing-2);
+}
+
+.filters-container h2 i {
+  font-size: 1.5rem;
+  color: #000000; /* Black */
+}
+
+/* Filters Grid */
+.filters-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+  gap: 0.125rem;
+  flex-wrap: wrap;
+}
+
+@media (min-width: 768px) {
+  .filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: 1rem;
+  }
+}
+
+/* Select Custom Container */
+.select-custom {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+  width: 100%;
+  min-width: 20rem;
+  height: auto;
+}
+
+/* Text Field Container */
+.text-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+  width: 100%;
+  min-width: 20rem;
+  height: auto;
+  border-radius: 0;
+}
+
+/* Form Control (Select Input) */
+.form-control {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0;
+  gap: 0.625rem;
+  width: 100%;
+  height: 2.375rem;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.form-control .MuiOutlinedInput-root {
+  height: 2.375rem;
+  border-radius: var(--dashboard-radius-md);
+}
+
+.form-control .MuiOutlinedInput-notchedOutline {
+  border: 0.0625rem solid var(--dashboard-border-input);
+  border-radius: var(--dashboard-radius-md);
+}
+
+.form-control:hover .MuiOutlinedInput-notchedOutline {
+  border-color: var(--dashboard-border-hover);
+}
+
+.form-control.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--dashboard-primary-main);
+  border-width: 0.0625rem;
+}
+
+/* Form Control Inner */
+.form-control .MuiSelect-select {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0.4375rem var(--dashboard-spacing-4);
+  gap: 0.625rem;
+  width: 100%;
+  height: 2.375rem;
+  border-radius: var(--dashboard-radius-md);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 0.9375rem; /* Body1: 15px */
+  line-height: 1.5rem;
+  color: var(--dashboard-text-primary);
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Form Label */
+.select-custom .form-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0;
+  position: relative;
+  width: auto;
+  height: 0.9375rem;
+  margin-bottom: 0.125rem;
+  border-radius: var(--dashboard-radius-md);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 0.8125rem; /* Subtitle2: 13px */
+  line-height: 0.9375rem;
+  color: var(--dashboard-text-primary);
+}
+
+/* Text Small Class */
+.text-sm {
+  font-size: 0.8125rem; /* Subtitle2: 13px */
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+/* Dropdown Menu */
+.dropdown-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--dashboard-spacing-2) 0;
+  min-width: 20rem !important;
+  max-width: 20rem !important;
+  max-height: 20rem;
+  background: var(--dashboard-bg-paper);
+  box-shadow: var(--dashboard-shadow-lg);
+  border-radius: var(--dashboard-radius-lg);
+  margin-top: var(--dashboard-spacing-1);
+  overflow: hidden;
+}
+
+/* Dropdown Item */
+.dropdown-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: var(--dashboard-spacing-2) var(--dashboard-spacing-5) !important; /* 8px 20px as per spec */
+  gap: var(--dashboard-spacing-2); /* 8px gap */
+  width: 100% !important;
+  min-height: 2.375rem; /* 38px as per spec */
+  max-width: 100%;
+  background: var(--dashboard-bg-paper);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 0.9375rem; /* 15px as per spec */
+  line-height: 1.375rem; /* 22px as per spec */
+  color: var(--dashboard-text-primary);
+  transition: background-color 0.2s ease;
+  box-sizing: border-box;
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown-item > * {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+/* Ensure MenuItem uses full width */
+.dropdown-item.MuiMenuItem-root {
+  width: 100% !important;
+  min-width: 100% !important;
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+}
+
+.dropdown-item .MuiListItemText-root,
+.dropdown-item .MuiListItemText-primary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Dropdown Item Hover */
+.dropdown-item:hover {
+  background: var(--dashboard-primary-lighterOpacity); /* 8% opacity */
+  color: var(--dashboard-text-primary);
+}
+
+/* Dropdown Item Active/Selected */
+.dropdown-item.Mui-selected {
+  background: var(--dashboard-primary-lightOpacity); /* 16% opacity */
+  color: var(--dashboard-primary-main);
+}
+
+.dropdown-item.Mui-selected:hover {
+  background: var(--dashboard-primary-mainOpacity); /* 24% opacity */
+}
+
+/* Dropdown Item Disabled */
+.dropdown-item.Mui-disabled {
+  color: var(--dashboard-text-disabled);
+  background: var(--dashboard-bg-paper);
+}
+
+/* Select Icon (Arrow) */
+.form-control .MuiSelect-icon {
+  width: 1.25rem; /* 20px as per spec */
+  height: 1.25rem;
+  color: var(--dashboard-text-primary);
+  right: var(--dashboard-spacing-4);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .select-custom,
+  .text-field {
+    min-width: 100%;
+    width: 100%;
+  }
+  
+  .filters-grid {
+    gap: 1rem;
+  }
+}

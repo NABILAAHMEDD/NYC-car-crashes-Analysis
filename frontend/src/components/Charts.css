@@ -1,0 +1,54 @@
+.charts-container {
+  background: var(--dashboard-bg-paper);
+  padding: var(--dashboard-spacing-8);
+  border-radius: var(--dashboard-radius-lg);
+  box-shadow: var(--dashboard-shadow-md);
+  border: 1px solid var(--dashboard-border-divider);
+}
+
+.charts-container h2 {
+  margin-top: 0;
+  margin-bottom: var(--dashboard-spacing-6);
+  color: #000000;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 500;
+  font-size: 1.5rem; /* H4: 24px */
+  display: flex;
+  align-items: center;
+  gap: var(--dashboard-spacing-2);
+}
+
+.charts-container h2 i {
+  font-size: 1.5rem;
+  color: #000000;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: var(--dashboard-spacing-8);
+}
+
+.chart {
+  min-height: 400px;
+  background: var(--dashboard-bg-paper);
+  border-radius: var(--dashboard-radius-lg);
+  padding: var(--dashboard-spacing-4);
+  box-shadow: var(--dashboard-shadow-sm);
+  border: 1px solid var(--dashboard-border-divider);
+}
+
+.chart.full-width {
+  grid-column: 1 / -1;
+  min-height: 450px;
+}
+
+@media (max-width: 1024px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart {
+    min-height: 350px;
+  }
+}
