@@ -26,7 +26,8 @@ from datetime import datetime
 
 # Initialize Flask application with CORS enabled for React frontend
 app = Flask(__name__)
-CORS(app)  # Enable CORS to allow React frontend on different port to access API
+# Enable CORS for all origins (update this to specific Vercel domain after deployment)
+CORS(app, resources={r"/api/*": {"origins": "*"}})  # Allows all origins for production
 
 # ============================================================================
 # DATA LOADING AND PREPROCESSING

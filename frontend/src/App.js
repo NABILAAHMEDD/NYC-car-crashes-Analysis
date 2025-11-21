@@ -28,8 +28,8 @@ import FilterSearch from './components/FilterSearch';
 import StatsCards from './components/StatsCards';
 import Charts from './components/Charts';
 
-// API base URL - Update this for production deployment
-const API_URL = 'http://localhost:5000/api';
+// API base URL - Uses environment variable in production, localhost in development
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 function App() {
   /**
