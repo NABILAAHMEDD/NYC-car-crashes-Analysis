@@ -39,8 +39,25 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})  # Allows all origins for pro
 # 1. Pre-integration cleaning of individual datasets
 # 2. Integration via COLLISION_ID foreign key
 # 3. Post-integration cleaning (handling duplicates, missing values, outliers)
+
+import os
+import urllib.request
+
+CSV_FILE = 'crashes_cleaned.csv'
+CSV_URL = os.environ.get('CSV_URL', None)  # Set this in Render environment variables
+
+# Download CSV if it doesn't exist locally and URL is provided
+if not os.path.exists(CSV_FILE) and CSV_URL:
+    print(f"CSV file not found. Downloading from {CSV_URL}...")
+    try:
+        urllib.request.urlretrieve(CSV_URL, CSV_FILE)
+        print("Download complete!")
+    except Exception as e:
+        print(f"Error downloading CSV: {e}")
+        raise
+
 print("Loading data...")
-df = pd.read_csv('crashes_cleaned.csv')
+df = pd.read_csv(CSV_FILE)
 
 # Convert date columns to datetime format
 # Using 'errors=coerce' to handle invalid dates gracefully (converts to NaT)
