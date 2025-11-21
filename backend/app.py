@@ -42,6 +42,8 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})  # Allows all origins for pro
 
 import os
 import urllib.request
+import requests
+from io import StringIO
 
 CSV_FILE = 'crashes_cleaned.csv'
 CSV_URL = os.environ.get('CSV_URL', None)  # Set this in Render environment variables
@@ -50,8 +52,57 @@ CSV_URL = os.environ.get('CSV_URL', None)  # Set this in Render environment vari
 if not os.path.exists(CSV_FILE) and CSV_URL:
     print(f"CSV file not found. Downloading from {CSV_URL}...")
     try:
-        urllib.request.urlretrieve(CSV_URL, CSV_FILE)
-        print("Download complete!")
+        # Handle Google Drive downloads with virus scan warning
+        if 'drive.google.com' in CSV_URL:
+            # Use requests to handle cookies and redirects
+            session = requests.Session()
+            response = session.get(CSV_URL, stream=True)
+            
+            # Check if we got HTML (virus scan warning) instead of the file
+            if response.headers.get('Content-Type', '').startswith('text/html'):
+                print("Received HTML page (virus scan warning), extracting download link...")
+                # Parse HTML to find the actual download URL
+                html_content = response.text
+                # Look for the form action URL
+                if 'drive.usercontent.google.com/download' in html_content:
+                    # Extract the form action URL and parameters
+                    import re
+                    # Find the form action
+                    form_match = re.search(r'action="([^"]+)"', html_content)
+                    if form_match:
+                        form_url = form_match.group(1)
+                        # Extract hidden form fields
+                        id_match = re.search(r'name="id"\s+value="([^"]+)"', html_content)
+                        if id_match:
+                            file_id = id_match.group(1)
+                            # Construct direct download URL
+                            direct_url = f"https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t&uuid="
+                            print(f"Using direct download URL...")
+                            response = session.get(direct_url, stream=True)
+                        else:
+                            # Try alternative: use the form URL directly
+                            response = session.get(form_url, stream=True)
+            
+            # Download the file in chunks
+            total_size = int(response.headers.get('content-length', 0))
+            print(f"Downloading {total_size / (1024*1024):.2f} MB...")
+            
+            with open(CSV_FILE, 'wb') as f:
+                downloaded = 0
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_size > 0:
+                            percent = (downloaded / total_size) * 100
+                            if downloaded % (10 * 1024 * 1024) == 0:  # Print every 10MB
+                                print(f"Downloaded {downloaded / (1024*1024):.2f} MB ({percent:.1f}%)")
+            
+            print("Download complete!")
+        else:
+            # For non-Google Drive URLs, use urllib
+            urllib.request.urlretrieve(CSV_URL, CSV_FILE)
+            print("Download complete!")
     except Exception as e:
         print(f"Error downloading CSV: {e}")
         raise
