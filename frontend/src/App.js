@@ -31,6 +31,10 @@ import Charts from './components/Charts';
 // API base URL - Uses environment variable in production, localhost in development
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
+// Debug: Log API URL to help troubleshoot
+console.log('API_URL:', API_URL);
+console.log('REACT_APP_API_URL env:', process.env.REACT_APP_API_URL);
+
 function App() {
   /**
    * Filter state - tracks user selections for all 6 filter types
@@ -116,11 +120,27 @@ function App() {
    */
   const loadFilterOptions = async () => {
     try {
+      console.log('Attempting to load filters from:', `${API_URL}/filters`);
       const response = await axios.get(`${API_URL}/filters`);
       setFilterOptions(response.data);
+      console.log('Filters loaded successfully:', response.data);
     } catch (error) {
       console.error('Error loading filters:', error);
-      setError('Error connecting to backend. Make sure Flask server is running on port 5000.');
+      const errorMsg = error.response 
+        ? `Backend error: ${error.response.status} - ${error.response.statusText}`
+        : error.request
+        ? `Cannot connect to backend at ${API_URL}. Make sure it's running.`
+        : `Error loading filters: ${error.message}`;
+      setError(errorMsg);
+      // Don't block UI - set empty filter options so UI can still render
+      setFilterOptions({
+        boroughs: [],
+        years: [],
+        vehicle_types: [],
+        contributing_factors: [],
+        person_types: [],
+        injury_types: []
+      });
     }
   };
 
