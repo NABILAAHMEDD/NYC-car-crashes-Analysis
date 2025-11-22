@@ -197,46 +197,22 @@ def get_dataframe():
     return _df_cache
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check endpoint - triggers data loading on first call"""
+    """Health check endpoint - lightweight, never triggers CSV load"""
     csv_exists = os.path.exists(CSV_FILE)
-    
-    # Trigger lazy load if not already loaded
-    if not _df_cache and csv_exists:
-        try:
-            print("⏳ Health check triggering data load (this may take 30-60 seconds)...")
-            df = get_dataframe()
-            print(f"✅ Data loaded successfully via health check!")
-        except Exception as e:
-            print(f"❌ Failed to load data: {e}")
-            import traceback
-            traceback.print_exc()
-            return jsonify({
-                'status': 'unhealthy',
-                'error': f'Failed to load data: {str(e)}',
-                'csv_file_exists': csv_exists
-            }), 500
-    
     data_loaded = _df_cache is not None
     
     response = {
         'status': 'healthy',
         'csv_file_exists': csv_exists,
-        'data_loaded': data_loaded
+        'data_loaded': data_loaded,
+        'message': 'Data will load on first real request (like /api/filters)'
     }
     
     if data_loaded:
         df = _df_cache
-        geo_check = df[['LATITUDE', 'LONGITUDE']].dropna() if 'LATITUDE' in df.columns and 'LONGITUDE' in df.columns else pd.DataFrame()
         response.update({
             'total_records': len(df),
-            'columns': len(df.columns),
-            'has_geo_data': len(geo_check) > 0,
-            'geo_data_count': len(geo_check),
-            'required_columns': {
-                'LATITUDE': 'LATITUDE' in df.columns,
-                'LONGITUDE': 'LONGITUDE' in df.columns,
-                'BOROUGH': 'BOROUGH' in df.columns
-            }
+            'columns': len(df.columns)
         })
     
     return jsonify(response)
