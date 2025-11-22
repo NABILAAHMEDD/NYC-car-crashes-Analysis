@@ -105,15 +105,15 @@ def health_check():
         with engine.connect() as conn:
             result = conn.execute(text("SELECT COUNT(*) as cnt FROM crashes"))
             count = result.fetchone()[0]
-    
-    response = {
-        'status': 'healthy',
+        
+        response = {
+            'status': 'healthy',
             'database': DATABASE if 'DATABASE' in locals() else 'MySQL',
             'server': SERVER if 'SERVER' in locals() else 'MySQL',
             'total_records': int(count),
             'message': 'Database connected successfully'
         }
-    return jsonify(response)
+        return jsonify(response)
     except Exception as e:
         return jsonify({
             'status': 'unhealthy',
@@ -257,18 +257,18 @@ def get_stats():
             by_hour = {int(row[0]): int(row[1]) for row in result if row[0] is not None}
             
             # Heatmap by day and hour
-        day_names = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 
-                     4: 'Friday', 5: 'Saturday', 6: 'Sunday'}
+            day_names = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 
+                         4: 'Friday', 5: 'Saturday', 6: 'Sunday'}
             day_hour_where = where_clause + (" AND" if where_clause else " WHERE") + " DAY IS NOT NULL AND HOUR IS NOT NULL"
             result = conn.execute(text(f"SELECT DAY, HOUR, COUNT(DISTINCT COLLISION_ID) as cnt FROM crashes{day_hour_where} GROUP BY DAY, HOUR"), params)
-        heatmap_data = {}
+            heatmap_data = {}
             for row in result:
                 day, hour, count = row
                 if day is not None and hour is not None:
                     day_name = day_names.get(day, f'Day_{day}')
-            if day_name not in heatmap_data:
-                heatmap_data[day_name] = {}
-            heatmap_data[day_name][int(hour)] = int(count)
+                    if day_name not in heatmap_data:
+                        heatmap_data[day_name] = {}
+                    heatmap_data[day_name][int(hour)] = int(count)
         
             # By season
             season_where = where_clause + (" AND" if where_clause else " WHERE") + " season IS NOT NULL"
