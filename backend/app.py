@@ -319,7 +319,12 @@ def get_stats():
             # Geo data (limit 500)
             geo_where = where_clause + (" AND" if where_clause else " WHERE") + " LATITUDE IS NOT NULL AND LONGITUDE IS NOT NULL AND LATITUDE BETWEEN 40.4 AND 40.9 AND LONGITUDE BETWEEN -74.5 AND -73.5"
             geo_query = f"SELECT LATITUDE, LONGITUDE, BOROUGH, `VEHICLE TYPE CODE 1`, PERSON_INJURY, HOUR, CRASH_DATE FROM crashes{geo_where} LIMIT 500"
-            geo_df = pd.read_sql(geo_query, engine, params=params)
+            # Use SQLAlchemy text() with params, then convert to DataFrame
+            with engine.connect() as geo_conn:
+                result = geo_conn.execute(text(geo_query), params)
+                rows = result.fetchall()
+                columns = result.keys()
+                geo_df = pd.DataFrame(rows, columns=columns)
             
             geo_data = []
             for _, row in geo_df.iterrows():
