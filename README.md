@@ -128,7 +128,7 @@ The frontend will open automatically at `http://localhost:3000`
 
 ### Deploying with Vercel
 
-This project uses Vercel for frontend deployment. The backend can be deployed separately on platforms like Heroku, Railway, or Render.
+This project uses Vercel for frontend deployment. The backend deployed  on rilway
 
 #### Frontend Deployment on Vercel
 
@@ -198,7 +198,7 @@ This project uses Vercel for frontend deployment. The backend can be deployed se
 
 Since Vercel is primarily for frontend/static sites, deploy the Flask backend separately:
 
-**Option 1: Railway (Recommended)**
+**Option 1: Railway **
 ```bash
 # Install Railway CLI
 npm install -g @railway/cli
@@ -208,33 +208,6 @@ railway login
 railway init
 railway up
 ```
-
-**Option 2: Render**
-- Go to [render.com](https://render.com)
-- Create new Web Service
-- Connect GitHub repo
-- Set Root Directory to `backend`
-- Build Command: `pip install -r requirements.txt`
-- Start Command: `gunicorn app:app`
-
-**Option 3: Heroku**
-```bash
-# Install Heroku CLI
-heroku create your-app-name
-
-# Add Procfile in backend directory:
-# web: gunicorn app:app
-
-# Deploy
-git push heroku main
-```
-
-**Option 4: PythonAnywhere**
-- Upload backend files via web interface
-- Configure WSGI file to point to `app.py`
-- Ensure `crashes_cleaned.csv` is uploaded
-
-#### Important Configuration Steps
 
 1. **Update CORS in Backend:**
    - Edit `backend/app.py`
