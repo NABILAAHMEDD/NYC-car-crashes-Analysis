@@ -87,24 +87,19 @@ if not os.path.exists(CSV_FILE) and CSV_URL:
             total_size = int(response.headers.get('content-length', 0))
             print(f"Downloading {total_size / (1024*1024):.2f} MB...")
             
-            # For free tiers, we only need the first part of the file (will sample rows anyway)
-            # Download enough to get 100K+ rows (approximately first 100MB)
-            max_download = 100 * 1024 * 1024  # 100MB should be enough for 100K rows
-            
+            # Download the full file in chunks
             with open(CSV_FILE, 'wb') as f:
                 downloaded = 0
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
                         downloaded += len(chunk)
-                        if downloaded >= max_download:
-                            print(f"Downloaded {downloaded / (1024*1024):.2f} MB (enough for sample)")
-                            break
-                        if total_size > 0 and downloaded % (20 * 1024 * 1024) == 0:  # Print every 20MB
+                        if total_size > 0:
                             percent = (downloaded / total_size) * 100
-                            print(f"Downloaded {downloaded / (1024*1024):.2f} MB ({percent:.1f}%)")
+                            if downloaded % (50 * 1024 * 1024) == 0:  # Print every 50MB
+                                print(f"Downloaded {downloaded / (1024*1024):.2f} MB ({percent:.1f}%)")
             
-            print(f"Download complete! Downloaded {downloaded / (1024*1024):.2f} MB (sampling enabled)")
+            print(f"Download complete! Total: {downloaded / (1024*1024):.2f} MB")
         else:
             # For non-Google Drive URLs, use urllib
             urllib.request.urlretrieve(CSV_URL, CSV_FILE)
@@ -114,28 +109,14 @@ if not os.path.exists(CSV_FILE) and CSV_URL:
         raise
 
 print("Loading data...")
-# Load CSV file - sample for free tier, full for paid tier
-# Free tiers (Render, Railway Trial) have 512MB RAM limit
-# For full 1.26GB CSV, we need at least 2GB RAM (paid tier or upgrade)
+# Load the full CSV file (Railway has more memory than Render free tier)
 try:
-    # Try to load full file first
     df = pd.read_csv(CSV_FILE)
     print(f"Full dataset loaded: {len(df)} rows")
-    
-    # If file is very large (>500K rows), sample for free tier compatibility
-    if len(df) > 500000:
-        print(f"Dataset is very large ({len(df)} rows). Sampling to 100K rows for free tier compatibility...")
-        df = df.sample(n=100000, random_state=42)
-        print(f"Sampled to {len(df)} rows")
 except MemoryError as e:
-    print(f"Memory error loading full file (likely 512MB RAM limit on free tier)")
-    print("Loading sample (50K rows) instead...")
-    try:
-        df = pd.read_csv(CSV_FILE, nrows=50000)
-        print(f"Sample loaded: {len(df)} rows")
-    except Exception as e2:
-        print(f"Error loading CSV: {e2}")
-        raise
+    print(f"Memory error loading full file: {e}")
+    print("If this happens on Railway, consider upgrading the plan or optimizing the dataset")
+    raise
 except Exception as e:
     print(f"Error loading CSV: {e}")
     raise
