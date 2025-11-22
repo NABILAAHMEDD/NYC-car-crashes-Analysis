@@ -102,30 +102,36 @@ print("CSV file ready. Flask app starting...")
 
 # Global cache for dataframe (lazy loading)
 _df_cache = None
-
 def get_dataframe():
     """Lazy-load the CSV file on first request to avoid startup timeout"""
     global _df_cache
     
-    # Return cached dataframe if already loaded
     if _df_cache is not None:
         return _df_cache
     
-    print("Loading data...")
-    # Load the full CSV file (Railway has more memory than Render free tier)
+    print("Loading data in chunks to avoid timeout...")
+    start_time = datetime.now()
+    
     try:
-        # Use engine='python' if 'c' engine fails, and handle errors gracefully
-        try:
-            df = pd.read_csv(CSV_FILE, engine='c', on_bad_lines='skip', low_memory=False)
-            print(f"Full dataset loaded: {len(df)} rows")
-        except Exception as c_engine_error:
-            print(f"C engine failed, trying Python engine: {c_engine_error}")
-            # Fallback to Python engine if C engine fails
-            df = pd.read_csv(CSV_FILE, engine='python', on_bad_lines='skip', low_memory=False)
-            print(f"Full dataset loaded with Python engine: {len(df)} rows")
+        # Load CSV in chunks to avoid worker timeout
+        chunks = []
+        chunk_size = 100000  # 100k rows per chunk
+        
+        print(f"Reading CSV in chunks of {chunk_size} rows...")
+        for i, chunk in enumerate(pd.read_csv(CSV_FILE, chunksize=chunk_size, 
+                                               engine='c', on_bad_lines='skip', 
+                                               low_memory=False)):
+            chunks.append(chunk)
+            if (i + 1) % 10 == 0:  # Print every 10 chunks
+                print(f"  Loaded chunk {i + 1} ({len(chunks) * chunk_size} rows so far)...")
+        
+        print(f"Concatenating {len(chunks)} chunks...")
+        df = pd.concat(chunks, ignore_index=True)
+        elapsed = (datetime.now() - start_time).total_seconds()
+        print(f"✅ Full dataset loaded: {len(df)} rows in {elapsed:.1f}s")
+        
     except MemoryError as e:
         print(f"Memory error loading full file: {e}")
-        print("If this happens on Railway, consider upgrading the plan or optimizing the dataset")
         raise
     except Exception as e:
         print(f"Error loading CSV: {e}")
@@ -134,12 +140,7 @@ def get_dataframe():
         raise
 
     # Debug: Print column names to see what we have
-    print(f"CSV columns: {list(df.columns)[:10]}...")  # Print first 10 columns
-
-    # Convert date columns to datetime format
-    # Using 'errors=coerce' to handle invalid dates gracefully (converts to NaT)
-    # Decision: We use 'coerce' instead of 'raise' because some records may have
-    # malformed dates, and we want to preserve other data in those records
+    print(f"CSV columns: {list(df.columns)[:10]}...")
 
     # Check which date column exists and standardize to 'CRASH_DATE'
     date_column = None
@@ -152,7 +153,6 @@ def get_dataframe():
     elif 'Crash Date' in df.columns:
         date_column = 'Crash Date'
     else:
-        # Try to find any column with 'date' in the name (case insensitive)
         date_cols = [col for col in df.columns if 'date' in col.lower()]
         if date_cols:
             date_column = date_cols[0]
@@ -162,16 +162,13 @@ def get_dataframe():
 
     # Always convert CRASH_DATE to datetime (standardize the column)
     if date_column == 'CRASH_DATE':
-        # Column already has the right name, just convert to datetime
         df['CRASH_DATE'] = pd.to_datetime(df['CRASH_DATE'], errors='coerce')
     elif date_column:
-        # Column has different name, convert and rename
         df['CRASH_DATE'] = pd.to_datetime(df[date_column], errors='coerce')
     else:
         raise ValueError("Could not determine date column")
 
-    # Extract year from crash date for filtering and time series analysis
-    # This allows us to filter by year and create yearly trend visualizations
+    # Extract year from crash date
     df['YEAR'] = df['CRASH_DATE'].dt.year
 
     print(f"Data loaded: {len(df)} records")
@@ -183,7 +180,6 @@ def get_dataframe():
     if missing_columns:
         print(f"⚠️ WARNING: Missing required columns for geo_data: {missing_columns}")
     else:
-        # Check if we have any valid coordinates
         geo_check = df[['LATITUDE', 'LONGITUDE']].dropna()
         if len(geo_check) > 0:
             print(f"✅ Geo data available: {len(geo_check)} records with coordinates")
