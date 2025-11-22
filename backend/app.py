@@ -9,7 +9,17 @@ from sqlalchemy import create_engine, text
 # Initialize Flask application with CORS enabled for React frontend
 app = Flask(__name__)
 # Enable CORS for all origins (update this to specific Vercel domain after deployment)
-CORS(app, resources={r"/api/*": {"origins": "*"}})  # Allows all origins for production
+CORS(app, resources={r"/*": {"origins": "*"}})  # Allows all origins for production
+
+# Add request logging middleware for debugging
+@app.before_request
+def log_request_info():
+    print(f'Request: {request.method} {request.path}')
+
+@app.after_request
+def after_request(response):
+    print(f'Response: {response.status_code} for {request.path}')
+    return response
 
 # ============================================================================
 # MYSQL CONNECTION CONFIGURATION
@@ -112,6 +122,11 @@ def root():
             'data': '/api/data'
         }
     })
+
+@app.route('/test', methods=['GET'])
+def test():
+    """Simple test endpoint"""
+    return jsonify({'message': 'Test endpoint working!', 'app': 'running'})
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
