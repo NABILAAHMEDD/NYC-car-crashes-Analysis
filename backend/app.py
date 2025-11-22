@@ -125,7 +125,14 @@ def get_dataframe():
             chunksize=chunk_size,
             engine='python',  # Python engine is more forgiving
             on_bad_lines='skip',  # Skip bad lines
-            low_memory=False,
+            reader = pd.read_csv(
+    CSV_FILE, 
+    chunksize=chunk_size,
+    engine='python',  # Python engine is more forgiving
+    on_bad_lines='skip',  # Skip bad lines
+    encoding='utf-8',
+    encoding_errors='ignore'  # Ignore encoding errors
+)
             encoding='utf-8',
             encoding_errors='ignore'  # Ignore encoding errors
         )
