@@ -97,6 +97,22 @@ def get_dataframe(query=None, params=None):
         raise
 
 print("Flask app initialized with MySQL connection.")
+
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint - provides API information"""
+    return jsonify({
+        'message': 'NYC Car Crashes API',
+        'status': 'running',
+        'endpoints': {
+            'health': '/api/health',
+            'filters': '/api/filters',
+            'stats': '/api/stats (POST)',
+            'search': '/api/search (POST)',
+            'data': '/api/data'
+        }
+    })
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint - tests database connection"""
