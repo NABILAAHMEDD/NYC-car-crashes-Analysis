@@ -98,6 +98,8 @@ elif CSV_URL and not os.path.exists(CSV_FILE):
         print(f"Error downloading CSV: {e}")
         raise
 
+print("CSV file ready. Flask app starting...")
+
 # Global cache for dataframe (lazy loading)
 _df_cache = None
 
@@ -585,6 +587,9 @@ def get_data():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Confirm app is ready (for production with gunicorn, this prints when module loads)
+print("Flask app initialized and ready to serve requests!")
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='0.0.0.0')
