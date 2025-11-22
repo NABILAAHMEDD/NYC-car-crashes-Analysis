@@ -3,6 +3,8 @@ from flask_cors import CORS
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import os
+from sqlalchemy import create_engine, text
 
 # Initialize Flask application with CORS enabled for React frontend
 app = Flask(__name__)
@@ -10,455 +12,304 @@ app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})  # Allows all origins for production
 
 # ============================================================================
-# DATA LOADING AND PREPROCESSING
+# MYSQL CONNECTION CONFIGURATION
 # ============================================================================
 
-# Load the pre-cleaned and integrated dataset
-# Note: This CSV file contains data that has already been cleaned and integrated
-# in a separate data exploration notebook. The cleaning process included:
-# 1. Pre-integration cleaning of individual datasets
-# 2. Integration via COLLISION_ID foreign key
-# 3. Post-integration cleaning (handling duplicates, missing values, outliers)
+# Get database connection settings from environment variables
+# For Railway: Use MySQL.MYSQL_URL from Railway (automatically set)
+MYSQL_URL = os.environ.get('MYSQL_URL') or os.environ.get('MySQL.MYSQL_URL')
+MYSQLDATABASE = os.environ.get('MYSQLDATABASE')
+MYSQLHOST = os.environ.get('MYSQLHOST')
+MYSQLPASSWORD = os.environ.get('MYSQLPASSWORD')
+MYSQLPORT = os.environ.get('MYSQLPORT', '3306')
+MYSQLUSER = os.environ.get('MYSQLUSER')
 
-import os
-import urllib.request
-import requests
-from io import StringIO
-
-# CSV file path - checks multiple possible locations
-if os.path.exists('crashes_cleaned.csv'):
-    CSV_FILE = 'crashes_cleaned.csv'  # Same directory as app.py (backend/)
-elif os.path.exists('backend/crashes_cleaned.csv'):
-    CSV_FILE = 'backend/crashes_cleaned.csv'  # If running from project root
+# Fallback to individual variables or defaults
+if MYSQL_URL:
+    # Replace mysql:// with mysql+pymysql:// for SQLAlchemy to use PyMySQL
+    if MYSQL_URL.startswith('mysql://'):
+        DATABASE_URL = MYSQL_URL.replace('mysql://', 'mysql+pymysql://', 1)
+    else:
+        DATABASE_URL = MYSQL_URL
 else:
-    CSV_FILE = 'crashes_cleaned.csv'  # Default - will download if not found
-CSV_URL = os.environ.get('CSV_URL', None)  # Set this in Render environment variables
+    # Build from individual components
+    USERNAME = MYSQLUSER or os.environ.get('SQL_USER', 'root')
+    PASSWORD = MYSQLPASSWORD or os.environ.get('SQL_PASSWORD', '')
+    SERVER = MYSQLHOST or os.environ.get('SQL_SERVER', 'localhost')
+    PORT = MYSQLPORT or os.environ.get('SQL_PORT', '3306')
+    DATABASE = MYSQLDATABASE or os.environ.get('SQL_DATABASE', 'railway')
+    DATABASE_URL = f"mysql+pymysql://{USERNAME}:{PASSWORD}@{SERVER}:{PORT}/{DATABASE}"
 
-# Check if CSV file exists locally first (for local testing)
-if os.path.exists(CSV_FILE):
-    print(f"Using local CSV file: {CSV_FILE}")
+# Global connection pool
+_db_engine = None
 
-# Download CSV only if it doesn't exist locally and URL is provided (for production)
-elif CSV_URL and not os.path.exists(CSV_FILE):
-    print(f"CSV file not found. Downloading from {CSV_URL}...")
+def get_db_connection():
+    """Create MySQL connection using SQLAlchemy"""
+    global _db_engine
+    
+    if _db_engine is not None:
+        return _db_engine
+    
     try:
-        # Handle Google Drive downloads with virus scan warning
-        if 'drive.google.com' in CSV_URL:
-            # Use requests to handle cookies and redirects
-            session = requests.Session()
-            response = session.get(CSV_URL, stream=True)
-            
-            # Check if we got HTML (virus scan warning) instead of the file
-            if response.headers.get('Content-Type', '').startswith('text/html'):
-                print("Received HTML page (virus scan warning), extracting download link...")
-                # Parse HTML to find the actual download URL
-                html_content = response.text
-                # Look for the form action URL
-                if 'drive.usercontent.google.com/download' in html_content:
-                    # Extract the form action URL and parameters
-                    import re
-                    # Find the form action
-                    form_match = re.search(r'action="([^"]+)"', html_content)
-                    if form_match:
-                        form_url = form_match.group(1)
-                        # Extract hidden form fields
-                        id_match = re.search(r'name="id"\s+value="([^"]+)"', html_content)
-                        if id_match:
-                            file_id = id_match.group(1)
-                            # Construct direct download URL
-                            direct_url = f"https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t&uuid="
-                            print(f"Using direct download URL...")
-                            response = session.get(direct_url, stream=True)
-                        else:
-                            # Try alternative: use the form URL directly
-                            response = session.get(form_url, stream=True)
-            
-            # Download the file in chunks
-            total_size = int(response.headers.get('content-length', 0))
-            print(f"Downloading {total_size / (1024*1024):.2f} MB...")
-            
-            # Download the full file in chunks
-            with open(CSV_FILE, 'wb') as f:
-                downloaded = 0
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total_size > 0:
-                            percent = (downloaded / total_size) * 100
-                            if downloaded % (50 * 1024 * 1024) == 0:  # Print every 50MB
-                                print(f"Downloaded {downloaded / (1024*1024):.2f} MB ({percent:.1f}%)")
-            
-            print(f"Download complete! Total: {downloaded / (1024*1024):.2f} MB")
-        else:
-            # For non-Google Drive URLs, use urllib
-            urllib.request.urlretrieve(CSV_URL, CSV_FILE)
-            print("Download complete!")
+        print(f"Connecting to MySQL database...")
+        _db_engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=3600)
+        
+        # Test connection
+        with _db_engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+            result.fetchone()
+        
+        print("✅ Connected to MySQL successfully!")
+        return _db_engine
     except Exception as e:
-        print(f"Error downloading CSV: {e}")
+        print(f"❌ Database connection error: {e}")
+        print("\nTroubleshooting:")
+        print("1. Check MySQL is running and accessible")
+        print("2. Verify connection credentials in environment variables")
+        print("3. For Railway: Make sure MYSQL_URL is set (or MySQL.MYSQL_URL)")
+        print("4. Check if pymysql is installed: pip install pymysql cryptography")
         raise
 
-print("CSV file ready. Flask app starting...")
-
-# Global cache for dataframe (lazy loading)
-_df_cache = None
-def get_dataframe():
-    """Lazy-load the CSV file on first request to avoid startup timeout"""
-    global _df_cache
+def get_dataframe(query=None, params=None):
+    """Query MySQL and return pandas DataFrame"""
+    engine = get_db_connection()
     
-    if _df_cache is not None:
-        return _df_cache
-    
-    print("Loading data in chunks with robust error handling...")
-    start_time = datetime.now()
+    if query is None:
+        # Default query - get all data (be careful with large datasets)
+        query = "SELECT * FROM crashes"
     
     try:
-        chunks = []
-        chunk_size = 50000
+        df = pd.read_sql(query, engine, params=params)
         
-        print(f"Reading CSV in chunks of {chunk_size} rows...")
+        # Ensure CRASH_DATE is datetime
+        if 'CRASH_DATE' in df.columns:
+            df['CRASH_DATE'] = pd.to_datetime(df['CRASH_DATE'], errors='coerce')
         
-        reader = pd.read_csv(
-            CSV_FILE, 
-            chunksize=chunk_size,
-            engine='python',
-            on_bad_lines='skip',
-            encoding='utf-8',
-            encoding_errors='ignore'
-        )
+        # Ensure YEAR column exists
+        if 'YEAR' not in df.columns and 'CRASH_DATE' in df.columns:
+            df['YEAR'] = df['CRASH_DATE'].dt.year
         
-        for i, chunk in enumerate(reader):
-            chunks.append(chunk)
-            if (i + 1) % 20 == 0:
-                elapsed = (datetime.now() - start_time).total_seconds()
-                print(f"  Loaded {i + 1} chunks ({(i + 1) * chunk_size} rows) in {elapsed:.1f}s...")
-        
-        print(f"Concatenating {len(chunks)} chunks...")
-        df = pd.concat(chunks, ignore_index=True)
-        elapsed = (datetime.now() - start_time).total_seconds()
-        print(f"✅ Dataset loaded: {len(df)} rows in {elapsed:.1f}s")
-        
+        return df
     except Exception as e:
-        print(f"Error loading CSV: {e}")
+        print(f"Error executing query: {e}")
         import traceback
         traceback.print_exc()
         raise
 
-    print(f"CSV columns: {list(df.columns)[:10]}...")
-    
-    date_column = None
-    if 'CRASH_DATE' in df.columns:
-        date_column = 'CRASH_DATE'
-    elif 'CRASH DATE' in df.columns:
-        date_column = 'CRASH DATE'
-    elif 'crash_date' in df.columns:
-        date_column = 'crash_date'
-    elif 'Crash Date' in df.columns:
-        date_column = 'Crash Date'
-    else:
-        date_cols = [col for col in df.columns if 'date' in col.lower()]
-        if date_cols:
-            date_column = date_cols[0]
-            print(f"Using date column: {date_column}")
-        else:
-            raise ValueError("No date column found")
-
-    if date_column == 'CRASH_DATE':
-        df['CRASH_DATE'] = pd.to_datetime(df['CRASH_DATE'], errors='coerce')
-    elif date_column:
-        df['CRASH_DATE'] = pd.to_datetime(df[date_column], errors='coerce')
-    else:
-        raise ValueError("Could not determine date column")
-
-    df['YEAR'] = df['CRASH_DATE'].dt.year
-    print(f"Data processed: {len(df)} records")
-
-    required_geo_columns = ['LATITUDE', 'LONGITUDE', 'BOROUGH']
-    missing_columns = [col for col in required_geo_columns if col not in df.columns]
-    if not missing_columns:
-        geo_check = df[['LATITUDE', 'LONGITUDE']].dropna()
-        if len(geo_check) > 0:
-            print(f"✅ Geo data: {len(geo_check)} records")
-    
-    _df_cache = df
-    return _df_cache
+print("Flask app initialized with MySQL connection.")
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check endpoint - lightweight, never triggers CSV load"""
-    csv_exists = os.path.exists(CSV_FILE)
-    data_loaded = _df_cache is not None
+    """Health check endpoint - tests database connection"""
+    try:
+        engine = get_db_connection()
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT COUNT(*) as cnt FROM crashes"))
+            count = result.fetchone()[0]
     
     response = {
         'status': 'healthy',
-        'csv_file_exists': csv_exists,
-        'data_loaded': data_loaded,
-        'message': 'Data will load on first real request (like /api/filters)'
-    }
-    
-    if data_loaded:
-        df = _df_cache
-        response.update({
-            'total_records': len(df),
-            'columns': len(df.columns)
-        })
-    
+            'database': DATABASE if 'DATABASE' in locals() else 'MySQL',
+            'server': SERVER if 'SERVER' in locals() else 'MySQL',
+            'total_records': int(count),
+            'message': 'Database connected successfully'
+        }
     return jsonify(response)
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'message': 'Database connection failed'
+        }), 500
 
 @app.route('/api/filters', methods=['GET'])
 def get_filter_options():
-    """Get all available filter options"""
+    """Get all available filter options from MySQL"""
     try:
-        df = get_dataframe()
-        boroughs = df['BOROUGH'].dropna().unique().tolist()
-        years = sorted(df['YEAR'].dropna().unique().astype(int).tolist())
-        vehicle_types = df['VEHICLE TYPE CODE 1'].dropna().value_counts().head(15).index.tolist()
-        contributing_factors = df['CONTRIBUTING FACTOR VEHICLE 1'].dropna().value_counts().head(15).index.tolist()
-        person_types = df['PERSON_TYPE'].dropna().unique().tolist()
-        injury_types = df['PERSON_INJURY'].dropna().unique().tolist()
+        engine = get_db_connection()
         
-        return jsonify({
-            'boroughs': ['All'] + sorted([str(b) for b in boroughs if str(b) != 'nan']),
-            'years': ['All'] + [str(y) for y in years],
-            'vehicle_types': ['All'] + [str(v) for v in vehicle_types],
-            'contributing_factors': ['All'] + [str(f) for f in contributing_factors],
-            'person_types': ['All'] + [str(p) for p in person_types],
-            'injury_types': ['All'] + [str(i) for i in injury_types]
-        })
+        # Query for filter options using SQL for better performance
+        queries = {
+            'boroughs': "SELECT DISTINCT BOROUGH FROM crashes WHERE BOROUGH IS NOT NULL ORDER BY BOROUGH",
+            'years': "SELECT DISTINCT YEAR FROM crashes WHERE YEAR IS NOT NULL ORDER BY YEAR",
+            'vehicle_types': "SELECT `VEHICLE TYPE CODE 1` as vehicle_type FROM crashes WHERE `VEHICLE TYPE CODE 1` IS NOT NULL GROUP BY `VEHICLE TYPE CODE 1` ORDER BY COUNT(*) DESC LIMIT 15",
+            'contributing_factors': "SELECT `CONTRIBUTING FACTOR VEHICLE 1` as factor FROM crashes WHERE `CONTRIBUTING FACTOR VEHICLE 1` IS NOT NULL GROUP BY `CONTRIBUTING FACTOR VEHICLE 1` ORDER BY COUNT(*) DESC LIMIT 15",
+            'person_types': "SELECT DISTINCT PERSON_TYPE FROM crashes WHERE PERSON_TYPE IS NOT NULL ORDER BY PERSON_TYPE",
+            'injury_types': "SELECT DISTINCT PERSON_INJURY FROM crashes WHERE PERSON_INJURY IS NOT NULL ORDER BY PERSON_INJURY"
+        }
+        
+        filters = {}
+        with engine.connect() as conn:
+            # Boroughs
+            result = conn.execute(text(queries['boroughs']))
+            filters['boroughs'] = ['All'] + [str(row[0]) for row in result if row[0]]
+            
+            # Years
+            result = conn.execute(text(queries['years']))
+            filters['years'] = ['All'] + [str(int(row[0])) for row in result if row[0] is not None]
+            
+            # Vehicle types
+            result = conn.execute(text(queries['vehicle_types']))
+            filters['vehicle_types'] = ['All'] + [str(row[0]) for row in result if row[0]]
+            
+            # Contributing factors
+            result = conn.execute(text(queries['contributing_factors']))
+            filters['contributing_factors'] = ['All'] + [str(row[0]) for row in result if row[0]]
+            
+            # Person types
+            result = conn.execute(text(queries['person_types']))
+            filters['person_types'] = ['All'] + [str(row[0]) for row in result if row[0]]
+            
+            # Injury types
+            result = conn.execute(text(queries['injury_types']))
+            filters['injury_types'] = ['All'] + [str(row[0]) for row in result if row[0]]
+        
+        return jsonify(filters)
     except Exception as e:
+        print(f"Error in get_filter_options: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 @app.route('/api/stats', methods=['POST'])
 def get_stats():
-    """
-    Generate comprehensive statistics based on user-selected filters.
-    
-    This endpoint applies multiple filters to the dataset and calculates various
-    statistics for visualization. The filtering approach uses sequential filtering
-    (AND logic) - all selected filters must match for a record to be included.
-    
-    Filtering Strategy:
-    - We use df.copy() to avoid modifying the original dataframe
-    - Each filter is applied sequentially, reducing the dataset size progressively
-    - Decision: Sequential filtering is more memory-efficient than creating multiple
-      boolean masks and combining them, especially for large datasets
-    
-    Statistical Calculations:
-    - Total crashes: Uses nunique() on COLLISION_ID to count distinct crashes
-      (not persons, since one crash can involve multiple people)
-    - Total persons: Uses len() to count all person records in filtered data
-    - Aggregations: Group by various dimensions for chart data
-    
-    Returns:
-        JSON object containing all statistics and chart-ready data
-    """
+    """Generate comprehensive statistics based on user-selected filters using MySQL"""
     try:
-        df = get_dataframe()
-        # Get filter parameters from request body
-        filters = request.json
-        filtered_df = df.copy()  # Create a copy to avoid modifying original data
+        filters = request.json or {}
+        engine = get_db_connection()
         
-        # ========================================================================
-        # APPLY FILTERS (Sequential Filtering Approach)
-        # ========================================================================
-        # Each filter is applied only if it's not 'All' (which means no filter)
-        # Decision: We check for 'All' explicitly rather than checking for None
-        # because the frontend always sends 'All' as a string when no filter is selected
+        # Build WHERE clause for filters
+        where_conditions = []
+        params = {}
         
         if filters.get('borough') and filters['borough'] != 'All':
-            filtered_df = filtered_df[filtered_df['BOROUGH'] == filters['borough']]
+            where_conditions.append("BOROUGH = :borough")
+            params['borough'] = filters['borough']
         
         if filters.get('year') and filters['year'] != 'All':
-            # Convert year to int for proper comparison
-            # Decision: We convert here rather than storing as int in dataframe
-            # to allow 'All' as a string option in the frontend
-            filtered_df = filtered_df[filtered_df['YEAR'] == int(filters['year'])]
+            where_conditions.append("YEAR = :year")
+            params['year'] = int(filters['year'])
         
         if filters.get('vehicle_type') and filters['vehicle_type'] != 'All':
-            filtered_df = filtered_df[filtered_df['VEHICLE TYPE CODE 1'] == filters['vehicle_type']]
+            where_conditions.append("`VEHICLE TYPE CODE 1` = :vehicle_type")
+            params['vehicle_type'] = filters['vehicle_type']
         
         if filters.get('contributing_factor') and filters['contributing_factor'] != 'All':
-            filtered_df = filtered_df[filtered_df['CONTRIBUTING FACTOR VEHICLE 1'] == filters['contributing_factor']]
+            where_conditions.append("`CONTRIBUTING FACTOR VEHICLE 1` = :contributing_factor")
+            params['contributing_factor'] = filters['contributing_factor']
         
         if filters.get('person_type') and filters['person_type'] != 'All':
-            filtered_df = filtered_df[filtered_df['PERSON_TYPE'] == filters['person_type']]
+            where_conditions.append("PERSON_TYPE = :person_type")
+            params['person_type'] = filters['person_type']
         
         if filters.get('injury_type') and filters['injury_type'] != 'All':
-            filtered_df = filtered_df[filtered_df['PERSON_INJURY'] == filters['injury_type']]
+            where_conditions.append("PERSON_INJURY = :injury_type")
+            params['injury_type'] = filters['injury_type']
         
-        # ========================================================================
-        # CALCULATE SUMMARY STATISTICS
-        # ========================================================================
+        where_clause = " WHERE " + " AND ".join(where_conditions) if where_conditions else ""
         
-        # Total unique crashes (not persons) - important distinction
-        # Decision: Use nunique() on COLLISION_ID because one crash can involve
-        # multiple persons. This gives us the actual number of crash events.
-        total_crashes = filtered_df['COLLISION_ID'].nunique()
-        
-        # Total persons involved in crashes (all person records in filtered data)
-        total_persons = len(filtered_df)
-        
-        # Sum of injuries and deaths across all crashes
-        # Note: These are aggregated at the person level, so we sum the values
-        total_injuries = filtered_df['NUMBER OF PERSONS INJURED'].sum()
-        total_deaths = filtered_df['NUMBER OF PERSONS KILLED'].sum()
-        
-        # ========================================================================
-        # CALCULATE AGGREGATED STATISTICS FOR CHARTS
-        # ========================================================================
-        
-        # Crashes grouped by borough
-        # Using nunique() to count distinct crashes per borough (not person count)
-        by_borough = filtered_df.groupby('BOROUGH')['COLLISION_ID'].nunique().to_dict()
-        
-        # Top 10 vehicle types by frequency
-        # Decision: Limit to top 10 to keep charts readable and focus on most common types
-        by_vehicle = filtered_df['VEHICLE TYPE CODE 1'].value_counts().head(10).to_dict()
-        
-        # Top 10 contributing factors by frequency
-        # Decision: Limit to top 10 for visualization clarity
-        by_factor = filtered_df['CONTRIBUTING FACTOR VEHICLE 1'].value_counts().head(10).to_dict()
-        
-        # Distribution by person type (Pedestrian, Cyclist, Occupant)
-        by_person_type = filtered_df['PERSON_TYPE'].value_counts().to_dict()
-        
-        # Distribution by injury severity (Killed, Injured, Unspecified)
-        by_injury = filtered_df['PERSON_INJURY'].value_counts().to_dict()
-        
-        # ========================================================================
-        # TIME-BASED ANALYSIS
-        # ========================================================================
-        
-        # Time series: Crashes grouped by month
-        # Using to_period('M') to group by month-year (e.g., '2022-01')
-        # Decision: We group by month rather than day to reduce data points
-        # and show clearer trends. For daily analysis, we could use 'D' period.
-        time_series = filtered_df.groupby(filtered_df['CRASH_DATE'].dt.to_period('M'))['COLLISION_ID'].nunique()
-        by_month = {str(k): int(v) for k, v in time_series.items()}
-        
-        # Crashes by hour of day (0-23)
-        # This helps identify peak crash hours (rush hours, etc.)
-        by_hour = filtered_df.groupby('HOUR')['COLLISION_ID'].nunique().to_dict()
-        
-        # Heatmap data: Crashes by day of week AND hour
-        # This creates a 2D pattern showing when crashes are most likely
-        # Map day numbers to day names for better readability
-        # Day encoding: 0=Monday, 1=Tuesday, ..., 6=Sunday
-        # Note: This mapping is for data transformation only, not static data
-        # All actual crash counts come from the CSV file via groupby operations
+        # Execute queries using SQLAlchemy
+        with engine.connect() as conn:
+            # Total unique crashes
+            result = conn.execute(text(f"SELECT COUNT(DISTINCT COLLISION_ID) as cnt FROM crashes{where_clause}"), params)
+            total_crashes = result.fetchone()[0] or 0
+            
+            # Total persons
+            result = conn.execute(text(f"SELECT COUNT(*) as cnt FROM crashes{where_clause}"), params)
+            total_persons = result.fetchone()[0] or 0
+            
+            # Total injuries and deaths
+            result = conn.execute(text(f"SELECT SUM(`NUMBER OF PERSONS INJURED`) as injuries, SUM(`NUMBER OF PERSONS KILLED`) as deaths FROM crashes{where_clause}"), params)
+            row = result.fetchone()
+            total_injuries = int(row[0] or 0)
+            total_deaths = int(row[1] or 0)
+            
+            # By borough
+            result = conn.execute(text(f"SELECT BOROUGH, COUNT(DISTINCT COLLISION_ID) as cnt FROM crashes{where_clause} GROUP BY BOROUGH"), params)
+            by_borough = {row[0]: int(row[1]) for row in result if row[0]}
+            
+            # Top 10 vehicle types
+            vehicle_where = where_clause + (" AND" if where_clause else " WHERE") + " `VEHICLE TYPE CODE 1` IS NOT NULL"
+            result = conn.execute(text(f"SELECT `VEHICLE TYPE CODE 1`, COUNT(*) as cnt FROM crashes{vehicle_where} GROUP BY `VEHICLE TYPE CODE 1` ORDER BY cnt DESC LIMIT 10"), params)
+            by_vehicle = {row[0]: int(row[1]) for row in result if row[0]}
+            
+            # Top 10 contributing factors
+            factor_where = where_clause + (" AND" if where_clause else " WHERE") + " `CONTRIBUTING FACTOR VEHICLE 1` IS NOT NULL"
+            result = conn.execute(text(f"SELECT `CONTRIBUTING FACTOR VEHICLE 1`, COUNT(*) as cnt FROM crashes{factor_where} GROUP BY `CONTRIBUTING FACTOR VEHICLE 1` ORDER BY cnt DESC LIMIT 10"), params)
+            by_factor = {row[0]: int(row[1]) for row in result if row[0]}
+            
+            # By person type
+            person_where = where_clause + (" AND" if where_clause else " WHERE") + " PERSON_TYPE IS NOT NULL"
+            result = conn.execute(text(f"SELECT PERSON_TYPE, COUNT(*) as cnt FROM crashes{person_where} GROUP BY PERSON_TYPE"), params)
+            by_person_type = {row[0]: int(row[1]) for row in result if row[0]}
+            
+            # By injury type
+            injury_where = where_clause + (" AND" if where_clause else " WHERE") + " PERSON_INJURY IS NOT NULL"
+            result = conn.execute(text(f"SELECT PERSON_INJURY, COUNT(*) as cnt FROM crashes{injury_where} GROUP BY PERSON_INJURY"), params)
+            by_injury = {row[0]: int(row[1]) for row in result if row[0]}
+            
+            # By month
+            month_where = where_clause + (" AND" if where_clause else " WHERE") + " CRASH_DATE IS NOT NULL"
+            result = conn.execute(text(f"SELECT DATE_FORMAT(CRASH_DATE, '%Y-%m') as month, COUNT(DISTINCT COLLISION_ID) as cnt FROM crashes{month_where} GROUP BY DATE_FORMAT(CRASH_DATE, '%Y-%m') ORDER BY month"), params)
+            by_month = {row[0]: int(row[1]) for row in result if row[0]}
+            
+            # By hour
+            hour_where = where_clause + (" AND" if where_clause else " WHERE") + " HOUR IS NOT NULL"
+            result = conn.execute(text(f"SELECT HOUR, COUNT(DISTINCT COLLISION_ID) as cnt FROM crashes{hour_where} GROUP BY HOUR ORDER BY HOUR"), params)
+            by_hour = {int(row[0]): int(row[1]) for row in result if row[0] is not None}
+            
+            # Heatmap by day and hour
         day_names = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 
                      4: 'Friday', 5: 'Saturday', 6: 'Sunday'}
-        by_day_hour = filtered_df.groupby(['DAY', 'HOUR'])['COLLISION_ID'].nunique()
-        
-        # Convert to nested dictionary structure: {day_name: {hour: count}}
-        # This format is easier for the frontend to process for heatmap visualization
+            day_hour_where = where_clause + (" AND" if where_clause else " WHERE") + " DAY IS NOT NULL AND HOUR IS NOT NULL"
+            result = conn.execute(text(f"SELECT DAY, HOUR, COUNT(DISTINCT COLLISION_ID) as cnt FROM crashes{day_hour_where} GROUP BY DAY, HOUR"), params)
         heatmap_data = {}
-        for (day, hour), count in by_day_hour.items():
-            day_name = day_names.get(day, f'Day_{day}')  # Fallback if day number not in mapping
+            for row in result:
+                day, hour, count = row
+                if day is not None and hour is not None:
+                    day_name = day_names.get(day, f'Day_{day}')
             if day_name not in heatmap_data:
                 heatmap_data[day_name] = {}
             heatmap_data[day_name][int(hour)] = int(count)
         
-        # Seasonal distribution (Spring, Summer, Fall, Winter)
-        # The 'season' column was created during data cleaning based on crash date
-        by_season = filtered_df['season'].value_counts().to_dict()
-        
-        # ========================================================================
-        # SAFETY EQUIPMENT ANALYSIS
-        # ========================================================================
-        
-        # Safety equipment usage statistics
-        # SAFETY_USED is a binary indicator (1=used, 0=not used) created during cleaning
-        # Decision: We count unique persons rather than total records to avoid
-        # double-counting if a person appears in multiple crash records
-        safety_stats = {
-            'used': int(filtered_df[filtered_df['SAFETY_USED'] == 1]['PERSON_ID'].nunique()),
-            'not_used': int(filtered_df[filtered_df['SAFETY_USED'] == 0]['PERSON_ID'].nunique())
-        }
-        
-        # ========================================================================
-        # GEOGRAPHIC DATA FOR MAP VISUALIZATION
-        # ========================================================================
-        
-        # Extract geographic coordinates for map visualization
-        # Decision: We limit to 500 points to avoid performance issues with
-        # large datasets. For production, consider implementing pagination or
-        # clustering for better performance with very large datasets.
-        # We dropna() to ensure we only include records with valid coordinates
-        # Convert to float to ensure proper numeric format for frontend
-        # IMPORTANT: Always return geo_data, even if empty, so frontend can handle it properly
-        # Include additional fields for enhanced map visualization
-        geo_columns = ['LATITUDE', 'LONGITUDE', 'BOROUGH', 'VEHICLE TYPE CODE 1', 
-                      'PERSON_INJURY', 'HOUR', 'CRASH_DATE']
-        # Only include columns that exist in the dataframe
-        available_columns = [col for col in geo_columns if col in filtered_df.columns]
-        geo_df = filtered_df[available_columns].dropna(subset=['LATITUDE', 'LONGITUDE'])
-        
-        # Filter to NYC bounds only if we have data
-        if len(geo_df) > 0:
-            geo_df = geo_df[(geo_df['LATITUDE'] >= 40.4) & (geo_df['LATITUDE'] <= 40.9) & 
-                            (geo_df['LONGITUDE'] >= -74.5) & (geo_df['LONGITUDE'] <= -73.5)]
-            geo_data = geo_df.head(500).to_dict('records')
-        else:
-            # Return empty list if no data after filtering
+            # By season
+            season_where = where_clause + (" AND" if where_clause else " WHERE") + " season IS NOT NULL"
+            result = conn.execute(text(f"SELECT season, COUNT(*) as cnt FROM crashes{season_where} GROUP BY season"), params)
+            by_season = {row[0]: int(row[1]) for row in result if row[0]}
+            
+            # Safety stats
+            safety_where = where_clause + (" AND" if where_clause else " WHERE") + " SAFETY_USED IS NOT NULL"
+            result = conn.execute(text(f"SELECT SAFETY_USED, COUNT(DISTINCT PERSON_ID) as cnt FROM crashes{safety_where} GROUP BY SAFETY_USED"), params)
+            safety_stats = {'used': 0, 'not_used': 0}
+            for row in result:
+                if row[0] == 1:
+                    safety_stats['used'] = int(row[1])
+                elif row[0] == 0:
+                    safety_stats['not_used'] = int(row[1])
+            
+            # Geo data (limit 500)
+            geo_where = where_clause + (" AND" if where_clause else " WHERE") + " LATITUDE IS NOT NULL AND LONGITUDE IS NOT NULL AND LATITUDE BETWEEN 40.4 AND 40.9 AND LONGITUDE BETWEEN -74.5 AND -73.5"
+            geo_query = f"SELECT LATITUDE, LONGITUDE, BOROUGH, `VEHICLE TYPE CODE 1`, PERSON_INJURY, HOUR, CRASH_DATE FROM crashes{geo_where} LIMIT 500"
+            geo_df = pd.read_sql(geo_query, engine, params=params)
+            
             geo_data = []
-        
-        # Ensure numeric types for coordinates and filter invalid records
-        valid_geo_data = []
-        for record in geo_data:
-            if record and isinstance(record, dict):  # Check if record exists and is a dict
+            for _, row in geo_df.iterrows():
                 try:
-                    lat = float(record.get('LATITUDE', 0))
-                    lon = float(record.get('LONGITUDE', 0))
-                    # Validate coordinates are within NYC bounds
-                    if 40.4 <= lat <= 40.9 and -74.5 <= lon <= -73.5:
-                        geo_record = {
-                            'LATITUDE': lat,
-                            'LONGITUDE': lon,
-                            'BOROUGH': record.get('BOROUGH', 'Unknown')
-                        }
-                        # Add additional fields if available
-                        if 'VEHICLE TYPE CODE 1' in record:
-                            geo_record['VEHICLE_TYPE'] = str(record.get('VEHICLE TYPE CODE 1', 'Unknown'))
-                        if 'PERSON_INJURY' in record:
-                            geo_record['INJURY_TYPE'] = str(record.get('PERSON_INJURY', 'Unknown'))
-                        if 'HOUR' in record:
-                            hour_val = record.get('HOUR')
-                            if pd.notna(hour_val):
-                                geo_record['HOUR'] = int(float(hour_val))
-                            else:
-                                geo_record['HOUR'] = None
-                        if 'CRASH_DATE' in record:
-                            crash_date = record.get('CRASH_DATE')
-                            if pd.notna(crash_date):
-                                geo_record['CRASH_DATE'] = str(crash_date)
-                        valid_geo_data.append(geo_record)
-                except (ValueError, TypeError, KeyError) as e:
-                    # Skip invalid records
+                    geo_record = {
+                        'LATITUDE': float(row['LATITUDE']),
+                        'LONGITUDE': float(row['LONGITUDE']),
+                        'BOROUGH': str(row['BOROUGH']) if pd.notna(row['BOROUGH']) else 'Unknown'
+                    }
+                    vehicle_col = 'VEHICLE TYPE CODE 1'
+                    if pd.notna(row.get(vehicle_col)):
+                        geo_record['VEHICLE_TYPE'] = str(row[vehicle_col])
+                    if pd.notna(row.get('PERSON_INJURY')):
+                        geo_record['INJURY_TYPE'] = str(row['PERSON_INJURY'])
+                    if pd.notna(row.get('HOUR')):
+                        geo_record['HOUR'] = int(row['HOUR'])
+                    if pd.notna(row.get('CRASH_DATE')):
+                        geo_record['CRASH_DATE'] = str(row['CRASH_DATE'])
+                    geo_data.append(geo_record)
+                except:
                     continue
-        
-        # Use the cleaned geo_data
-        geo_data = valid_geo_data
-        
-        # Ensure geo_data is always a list, even if empty (important for frontend)
-        if not isinstance(geo_data, list):
-            geo_data = []
-        
-        # Debug: Log geo_data info for troubleshooting
-        print(f"[DEBUG] Geo data processing:")
-        print(f"  - Initial filtered records: {len(filtered_df)}")
-        print(f"  - Records with coordinates: {len(geo_df) if len(geo_df) > 0 else 0}")
-        print(f"  - Final valid geo_data count: {len(geo_data)}")
-        if len(geo_data) > 0:
-            print(f"  - Sample geo data: {geo_data[0]}")
-            print(f"  - Lat range: {min([r['LATITUDE'] for r in geo_data]):.4f} to {max([r['LATITUDE'] for r in geo_data]):.4f}")
-            print(f"  - Lon range: {min([r['LONGITUDE'] for r in geo_data]):.4f} to {max([r['LONGITUDE'] for r in geo_data]):.4f}")
-        else:
-            print(f"  - WARNING: No valid geo_data to return!")
-            # Check if we have data but it's being filtered out
-            if len(filtered_df) > 0:
-                sample_coords = filtered_df[['LATITUDE', 'LONGITUDE']].dropna().head(5)
-                if len(sample_coords) > 0:
-                    print(f"  - Sample coordinates from filtered_df: {sample_coords.to_dict('records')}")
         
         return jsonify({
             'total_crashes': int(total_crashes),
@@ -472,13 +323,15 @@ def get_stats():
             'by_injury': by_injury,
             'by_month': by_month,
             'by_hour': by_hour,
-            'by_day_hour': heatmap_data,  # Real heatmap data
+            'by_day_hour': heatmap_data,
             'by_season': by_season,
             'safety_stats': safety_stats,
             'geo_data': geo_data
         })
     except Exception as e:
         print(f"Error in get_stats: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/search', methods=['POST'])
@@ -561,14 +414,14 @@ def search():
         return jsonify({'filters': filters})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 @app.route('/api/data', methods=['GET'])
 def get_data():
     """Get sample data for table view"""
     try:
-        df = get_dataframe()
-        # Return first 100 rows
-        sample_data = df.head(100).fillna('N/A').to_dict('records')
+        engine = get_db_connection()
+        query = "SELECT * FROM crashes LIMIT 100"
+        df = pd.read_sql(query, engine)
+        sample_data = df.fillna('N/A').to_dict('records')
         return jsonify({
             'data': sample_data,
             'total': len(df)
