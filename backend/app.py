@@ -109,40 +109,48 @@ def get_dataframe():
     if _df_cache is not None:
         return _df_cache
     
-    print("Loading data in chunks to avoid timeout...")
+    print("Loading data in chunks with robust error handling...")
     start_time = datetime.now()
     
     try:
-        # Load CSV in chunks to avoid worker timeout
+        # Load CSV in chunks with aggressive error handling
         chunks = []
-        chunk_size = 100000  # 100k rows per chunk
+        chunk_size = 50000  # Smaller chunks = faster
         
         print(f"Reading CSV in chunks of {chunk_size} rows...")
-        for i, chunk in enumerate(pd.read_csv(CSV_FILE, chunksize=chunk_size, 
-                                               engine='c', on_bad_lines='skip', 
-                                               low_memory=False)):
+        
+        # Use iterator with better error handling
+        reader = pd.read_csv(
+            CSV_FILE, 
+            chunksize=chunk_size,
+            engine='python',  # Python engine is more forgiving
+            on_bad_lines='skip',  # Skip bad lines
+            low_memory=False,
+            encoding='utf-8',
+            encoding_errors='ignore'  # Ignore encoding errors
+        )
+        
+        for i, chunk in enumerate(reader):
             chunks.append(chunk)
-            if (i + 1) % 10 == 0:  # Print every 10 chunks
-                print(f"  Loaded chunk {i + 1} ({len(chunks) * chunk_size} rows so far)...")
+            if (i + 1) % 20 == 0:  # Print every 20 chunks (1M rows)
+                elapsed = (datetime.now() - start_time).total_seconds()
+                print(f"  Loaded {i + 1} chunks ({(i + 1) * chunk_size} rows) in {elapsed:.1f}s...")
         
         print(f"Concatenating {len(chunks)} chunks...")
         df = pd.concat(chunks, ignore_index=True)
         elapsed = (datetime.now() - start_time).total_seconds()
-        print(f"✅ Full dataset loaded: {len(df)} rows in {elapsed:.1f}s")
+        print(f"✅ Dataset loaded: {len(df)} rows in {elapsed:.1f}s")
         
-    except MemoryError as e:
-        print(f"Memory error loading full file: {e}")
-        raise
     except Exception as e:
         print(f"Error loading CSV: {e}")
         import traceback
         traceback.print_exc()
         raise
 
-    # Debug: Print column names to see what we have
+    # Rest of your code stays the same...
     print(f"CSV columns: {list(df.columns)[:10]}...")
-
-    # Check which date column exists and standardize to 'CRASH_DATE'
+    
+    # Date column detection
     date_column = None
     if 'CRASH_DATE' in df.columns:
         date_column = 'CRASH_DATE'
@@ -158,9 +166,8 @@ def get_dataframe():
             date_column = date_cols[0]
             print(f"Using date column: {date_column}")
         else:
-            raise ValueError("No date column found in CSV file. Columns: " + str(list(df.columns)))
+            raise ValueError("No date column found in CSV file")
 
-    # Always convert CRASH_DATE to datetime (standardize the column)
     if date_column == 'CRASH_DATE':
         df['CRASH_DATE'] = pd.to_datetime(df['CRASH_DATE'], errors='coerce')
     elif date_column:
@@ -168,27 +175,18 @@ def get_dataframe():
     else:
         raise ValueError("Could not determine date column")
 
-    # Extract year from crash date
     df['YEAR'] = df['CRASH_DATE'].dt.year
+    print(f"Data processed: {len(df)} records")
 
-    print(f"Data loaded: {len(df)} records")
-    print(f"Columns: {list(df.columns)}")
-
-    # Verify required columns for geo_data exist
     required_geo_columns = ['LATITUDE', 'LONGITUDE', 'BOROUGH']
     missing_columns = [col for col in required_geo_columns if col not in df.columns]
     if missing_columns:
-        print(f"⚠️ WARNING: Missing required columns for geo_data: {missing_columns}")
+        print(f"⚠️ WARNING: Missing required columns: {missing_columns}")
     else:
         geo_check = df[['LATITUDE', 'LONGITUDE']].dropna()
         if len(geo_check) > 0:
-            print(f"✅ Geo data available: {len(geo_check)} records with coordinates")
-            print(f"   Lat range: {geo_check['LATITUDE'].min():.4f} to {geo_check['LATITUDE'].max():.4f}")
-            print(f"   Lon range: {geo_check['LONGITUDE'].min():.4f} to {geo_check['LONGITUDE'].max():.4f}")
-        else:
-            print(f"⚠️ WARNING: No records with valid coordinates found in dataset")
+            print(f"✅ Geo data: {len(geo_check)} records with coordinates")
     
-    # Cache the dataframe
     _df_cache = df
     return _df_cache
 @app.route('/api/health', methods=['GET'])
