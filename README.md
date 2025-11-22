@@ -305,7 +305,11 @@ nyc-crash-dashboard/
 ├── backend/
 │   ├── app.py                 # Flask API with endpoints
 │   ├── requirements.txt       # Python dependencies
-│   ├── crashes_cleaned.csv    # Cleaned and integrated data
+│   ├── Procfile               # Railway deployment configuration
+│   ├── runtime.txt            # Python version specification
+│   ├── crashes_cleaned.csv    # Cleaned and integrated data (CSV)
+│   ├── import_csv_to_mysql.py # Script to import CSV to MySQL
+│   ├── create_table_mysql.sql # MySQL table creation script
 │   └── .gitignore
 │
 ├── frontend/
@@ -329,10 +333,23 @@ nyc-crash-dashboard/
 │   │   ├── index.css          # Global styles
 │   │   └── theme.css          # Design system theme variables
 │   ├── package.json
+│   ├── vercel.json            # Vercel deployment configuration
 │   └── .gitignore
 │
 └── README.md
 ```
+
+## Database Configuration
+
+### Production (Railway MySQL)
+- The app automatically uses Railway's MySQL database
+- Connection is configured via Railway's `MYSQL_URL` environment variable
+- No code changes needed for Railway deployment
+
+### Local Development
+- Set up a local MySQL database
+- Configure connection via environment variables (see Local Development Setup above)
+- The app automatically detects local vs. production environment
 
 ##  API Endpoints
 
