@@ -98,90 +98,106 @@ elif CSV_URL and not os.path.exists(CSV_FILE):
         print(f"Error downloading CSV: {e}")
         raise
 
-print("Loading data...")
-# Load the full CSV file (Railway has more memory than Render free tier)
-try:
-    # Use engine='python' if 'c' engine fails, and handle errors gracefully
+# Global cache for dataframe (lazy loading)
+_df_cache = None
+
+def get_dataframe():
+    """Lazy-load the CSV file on first request to avoid startup timeout"""
+    global _df_cache
+    
+    # Return cached dataframe if already loaded
+    if _df_cache is not None:
+        return _df_cache
+    
+    print("Loading data...")
+    # Load the full CSV file (Railway has more memory than Render free tier)
     try:
-        df = pd.read_csv(CSV_FILE, engine='c', on_bad_lines='skip', low_memory=False)
-        print(f"Full dataset loaded: {len(df)} rows")
-    except Exception as c_engine_error:
-        print(f"C engine failed, trying Python engine: {c_engine_error}")
-        # Fallback to Python engine if C engine fails
-        df = pd.read_csv(CSV_FILE, engine='python', on_bad_lines='skip', low_memory=False)
-        print(f"Full dataset loaded with Python engine: {len(df)} rows")
-except MemoryError as e:
-    print(f"Memory error loading full file: {e}")
-    print("If this happens on Railway, consider upgrading the plan or optimizing the dataset")
-    raise
-except Exception as e:
-    print(f"Error loading CSV: {e}")
-    import traceback
-    traceback.print_exc()
-    raise
+        # Use engine='python' if 'c' engine fails, and handle errors gracefully
+        try:
+            df = pd.read_csv(CSV_FILE, engine='c', on_bad_lines='skip', low_memory=False)
+            print(f"Full dataset loaded: {len(df)} rows")
+        except Exception as c_engine_error:
+            print(f"C engine failed, trying Python engine: {c_engine_error}")
+            # Fallback to Python engine if C engine fails
+            df = pd.read_csv(CSV_FILE, engine='python', on_bad_lines='skip', low_memory=False)
+            print(f"Full dataset loaded with Python engine: {len(df)} rows")
+    except MemoryError as e:
+        print(f"Memory error loading full file: {e}")
+        print("If this happens on Railway, consider upgrading the plan or optimizing the dataset")
+        raise
+    except Exception as e:
+        print(f"Error loading CSV: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
-# Debug: Print column names to see what we have
-print(f"CSV columns: {list(df.columns)[:10]}...")  # Print first 10 columns
+    # Debug: Print column names to see what we have
+    print(f"CSV columns: {list(df.columns)[:10]}...")  # Print first 10 columns
 
-# Convert date columns to datetime format
-# Using 'errors=coerce' to handle invalid dates gracefully (converts to NaT)
-# Decision: We use 'coerce' instead of 'raise' because some records may have
-# malformed dates, and we want to preserve other data in those records
+    # Convert date columns to datetime format
+    # Using 'errors=coerce' to handle invalid dates gracefully (converts to NaT)
+    # Decision: We use 'coerce' instead of 'raise' because some records may have
+    # malformed dates, and we want to preserve other data in those records
 
-# Check which date column exists and standardize to 'CRASH_DATE'
-date_column = None
-if 'CRASH_DATE' in df.columns:
-    date_column = 'CRASH_DATE'
-elif 'CRASH DATE' in df.columns:
-    date_column = 'CRASH DATE'
-elif 'crash_date' in df.columns:
-    date_column = 'crash_date'
-elif 'Crash Date' in df.columns:
-    date_column = 'Crash Date'
-else:
-    # Try to find any column with 'date' in the name (case insensitive)
-    date_cols = [col for col in df.columns if 'date' in col.lower()]
-    if date_cols:
-        date_column = date_cols[0]
-        print(f"Using date column: {date_column}")
+    # Check which date column exists and standardize to 'CRASH_DATE'
+    date_column = None
+    if 'CRASH_DATE' in df.columns:
+        date_column = 'CRASH_DATE'
+    elif 'CRASH DATE' in df.columns:
+        date_column = 'CRASH DATE'
+    elif 'crash_date' in df.columns:
+        date_column = 'crash_date'
+    elif 'Crash Date' in df.columns:
+        date_column = 'Crash Date'
     else:
-        raise ValueError("No date column found in CSV file. Columns: " + str(list(df.columns)))
+        # Try to find any column with 'date' in the name (case insensitive)
+        date_cols = [col for col in df.columns if 'date' in col.lower()]
+        if date_cols:
+            date_column = date_cols[0]
+            print(f"Using date column: {date_column}")
+        else:
+            raise ValueError("No date column found in CSV file. Columns: " + str(list(df.columns)))
 
-# Always convert CRASH_DATE to datetime (standardize the column)
-if date_column == 'CRASH_DATE':
-    # Column already has the right name, just convert to datetime
-    df['CRASH_DATE'] = pd.to_datetime(df['CRASH_DATE'], errors='coerce')
-elif date_column:
-    # Column has different name, convert and rename
-    df['CRASH_DATE'] = pd.to_datetime(df[date_column], errors='coerce')
-else:
-    raise ValueError("Could not determine date column")
-
-# Extract year from crash date for filtering and time series analysis
-# This allows us to filter by year and create yearly trend visualizations
-df['YEAR'] = df['CRASH_DATE'].dt.year
-
-print(f"Data loaded: {len(df)} records")
-print(f"Columns: {list(df.columns)}")
-
-# Verify required columns for geo_data exist
-required_geo_columns = ['LATITUDE', 'LONGITUDE', 'BOROUGH']
-missing_columns = [col for col in required_geo_columns if col not in df.columns]
-if missing_columns:
-    print(f"⚠️ WARNING: Missing required columns for geo_data: {missing_columns}")
-else:
-    # Check if we have any valid coordinates
-    geo_check = df[['LATITUDE', 'LONGITUDE']].dropna()
-    if len(geo_check) > 0:
-        print(f"✅ Geo data available: {len(geo_check)} records with coordinates")
-        print(f"   Lat range: {geo_check['LATITUDE'].min():.4f} to {geo_check['LATITUDE'].max():.4f}")
-        print(f"   Lon range: {geo_check['LONGITUDE'].min():.4f} to {geo_check['LONGITUDE'].max():.4f}")
+    # Always convert CRASH_DATE to datetime (standardize the column)
+    if date_column == 'CRASH_DATE':
+        # Column already has the right name, just convert to datetime
+        df['CRASH_DATE'] = pd.to_datetime(df['CRASH_DATE'], errors='coerce')
+    elif date_column:
+        # Column has different name, convert and rename
+        df['CRASH_DATE'] = pd.to_datetime(df[date_column], errors='coerce')
     else:
-        print(f"⚠️ WARNING: No records with valid coordinates found in dataset")
+        raise ValueError("Could not determine date column")
+
+    # Extract year from crash date for filtering and time series analysis
+    # This allows us to filter by year and create yearly trend visualizations
+    df['YEAR'] = df['CRASH_DATE'].dt.year
+
+    print(f"Data loaded: {len(df)} records")
+    print(f"Columns: {list(df.columns)}")
+
+    # Verify required columns for geo_data exist
+    required_geo_columns = ['LATITUDE', 'LONGITUDE', 'BOROUGH']
+    missing_columns = [col for col in required_geo_columns if col not in df.columns]
+    if missing_columns:
+        print(f"⚠️ WARNING: Missing required columns for geo_data: {missing_columns}")
+    else:
+        # Check if we have any valid coordinates
+        geo_check = df[['LATITUDE', 'LONGITUDE']].dropna()
+        if len(geo_check) > 0:
+            print(f"✅ Geo data available: {len(geo_check)} records with coordinates")
+            print(f"   Lat range: {geo_check['LATITUDE'].min():.4f} to {geo_check['LATITUDE'].max():.4f}")
+            print(f"   Lon range: {geo_check['LONGITUDE'].min():.4f} to {geo_check['LONGITUDE'].max():.4f}")
+        else:
+            print(f"⚠️ WARNING: No records with valid coordinates found in dataset")
+    
+    # Cache the dataframe
+    _df_cache = df
+    return _df_cache
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    df = get_dataframe()
     # Check geo_data availability
     geo_check = df[['LATITUDE', 'LONGITUDE']].dropna() if 'LATITUDE' in df.columns and 'LONGITUDE' in df.columns else pd.DataFrame()
     
@@ -202,6 +218,7 @@ def health_check():
 def get_filter_options():
     """Get all available filter options"""
     try:
+        df = get_dataframe()
         boroughs = df['BOROUGH'].dropna().unique().tolist()
         years = sorted(df['YEAR'].dropna().unique().astype(int).tolist())
         vehicle_types = df['VEHICLE TYPE CODE 1'].dropna().value_counts().head(15).index.tolist()
@@ -245,6 +262,7 @@ def get_stats():
         JSON object containing all statistics and chart-ready data
     """
     try:
+        df = get_dataframe()
         # Get filter parameters from request body
         filters = request.json
         filtered_df = df.copy()  # Create a copy to avoid modifying original data
@@ -558,6 +576,7 @@ def search():
 def get_data():
     """Get sample data for table view"""
     try:
+        df = get_dataframe()
         # Return first 100 rows
         sample_data = df.head(100).fillna('N/A').to_dict('records')
         return jsonify({
