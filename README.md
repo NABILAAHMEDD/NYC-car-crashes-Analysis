@@ -349,6 +349,7 @@ nyc-crash-dashboard/
 - Set up a local MySQL database
 - Configure connection via environment variables (see Local Development Setup above)
 - The app automatically detects local vs. production environment
+- **Note**: We loaded 300,000 rows from the CSV file as the dataset is too large to load entirely
 
 ##  API Endpoints
 
@@ -413,8 +414,6 @@ While working with the dashboard and exploring the data, I noticed some interest
 3. **Contributing Factors**: When I looked at what causes crashes, driver inattention and distraction kept appearing as the top reason. It's a reminder of how important it is to stay focused while driving.
 
 4. **Seasonal Patterns**: I noticed that crashes tend to peak during the summer and fall months. This could be related to more people being on the road during warmer weather or back-to-school traffic.
-
-5. **Safety Equipment**: One thing that really stood out was the clear connection between using safety equipment (like seatbelts and helmets) and the severity of injuries. The data shows that proper safety gear makes a real difference.
 
 
 
