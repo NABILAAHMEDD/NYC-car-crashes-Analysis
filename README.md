@@ -350,6 +350,7 @@ nyc-crash-dashboard/
 - Configure connection via environment variables (see Local Development Setup above)
 - The app automatically detects local vs. production environment
 - **Note**: We loaded 300,000 rows from the CSV file as the dataset is too large to load entirely
+- **Important**: When filtering the data, some results may show empty graphs and summary cards because only 300,000 rows were loaded (not the full dataset)
 
 ##  API Endpoints
 
@@ -414,6 +415,3 @@ While working with the dashboard and exploring the data, I noticed some interest
 3. **Contributing Factors**: When I looked at what causes crashes, driver inattention and distraction kept appearing as the top reason. It's a reminder of how important it is to stay focused while driving.
 
 4. **Seasonal Patterns**: I noticed that crashes tend to peak during the summer and fall months. This could be related to more people being on the road during warmer weather or back-to-school traffic.
-
-
-
