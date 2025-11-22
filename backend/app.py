@@ -1,23 +1,3 @@
-"""
-NYC Traffic Crash Data Dashboard - Backend API
-
-This Flask application serves as the REST API backend for the NYC Traffic Crash Data Dashboard.
-It provides endpoints for filtering, searching, and generating statistics from the cleaned
-and integrated crash dataset.
-
-Data Processing Decisions:
-- The dataset (crashes_cleaned.csv) has already undergone pre-integration and post-integration
-  cleaning, including:
-  * Missing value handling (dropped or imputed based on column importance)
-  * Outlier detection and removal (using IQR method for numerical columns)
-  * Data type standardization (dates, categorical variables)
-  * Duplicate removal (based on COLLISION_ID + PERSON_ID composite key)
-  * Integration of Crash and Person datasets via COLLISION_ID foreign key
-
-Author: Data Engineering Team
-Date: 2025
-"""
-
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import pandas as pd
@@ -45,11 +25,21 @@ import urllib.request
 import requests
 from io import StringIO
 
-CSV_FILE = 'crashes_cleaned.csv'
+# CSV file path - checks multiple possible locations
+if os.path.exists('crashes_cleaned.csv'):
+    CSV_FILE = 'crashes_cleaned.csv'  # Same directory as app.py (backend/)
+elif os.path.exists('backend/crashes_cleaned.csv'):
+    CSV_FILE = 'backend/crashes_cleaned.csv'  # If running from project root
+else:
+    CSV_FILE = 'crashes_cleaned.csv'  # Default - will download if not found
 CSV_URL = os.environ.get('CSV_URL', None)  # Set this in Render environment variables
 
-# Download CSV if it doesn't exist locally and URL is provided
-if not os.path.exists(CSV_FILE) and CSV_URL:
+# Check if CSV file exists locally first (for local testing)
+if os.path.exists(CSV_FILE):
+    print(f"Using local CSV file: {CSV_FILE}")
+
+# Download CSV only if it doesn't exist locally and URL is provided (for production)
+elif CSV_URL and not os.path.exists(CSV_FILE):
     print(f"CSV file not found. Downloading from {CSV_URL}...")
     try:
         # Handle Google Drive downloads with virus scan warning
@@ -111,14 +101,23 @@ if not os.path.exists(CSV_FILE) and CSV_URL:
 print("Loading data...")
 # Load the full CSV file (Railway has more memory than Render free tier)
 try:
-    df = pd.read_csv(CSV_FILE)
-    print(f"Full dataset loaded: {len(df)} rows")
+    # Use engine='python' if 'c' engine fails, and handle errors gracefully
+    try:
+        df = pd.read_csv(CSV_FILE, engine='c', on_bad_lines='skip', low_memory=False)
+        print(f"Full dataset loaded: {len(df)} rows")
+    except Exception as c_engine_error:
+        print(f"C engine failed, trying Python engine: {c_engine_error}")
+        # Fallback to Python engine if C engine fails
+        df = pd.read_csv(CSV_FILE, engine='python', on_bad_lines='skip', low_memory=False)
+        print(f"Full dataset loaded with Python engine: {len(df)} rows")
 except MemoryError as e:
     print(f"Memory error loading full file: {e}")
     print("If this happens on Railway, consider upgrading the plan or optimizing the dataset")
     raise
 except Exception as e:
     print(f"Error loading CSV: {e}")
+    import traceback
+    traceback.print_exc()
     raise
 
 # Debug: Print column names to see what we have
@@ -135,27 +134,28 @@ if 'CRASH_DATE' in df.columns:
     date_column = 'CRASH_DATE'
 elif 'CRASH DATE' in df.columns:
     date_column = 'CRASH DATE'
-    # Rename to standard format
-    df['CRASH_DATE'] = pd.to_datetime(df['CRASH DATE'], errors='coerce')
 elif 'crash_date' in df.columns:
     date_column = 'crash_date'
-    df['CRASH_DATE'] = pd.to_datetime(df['crash_date'], errors='coerce')
 elif 'Crash Date' in df.columns:
     date_column = 'Crash Date'
-    df['CRASH_DATE'] = pd.to_datetime(df['Crash Date'], errors='coerce')
 else:
     # Try to find any column with 'date' in the name (case insensitive)
     date_cols = [col for col in df.columns if 'date' in col.lower()]
     if date_cols:
         date_column = date_cols[0]
-        df['CRASH_DATE'] = pd.to_datetime(df[date_column], errors='coerce')
         print(f"Using date column: {date_column}")
     else:
         raise ValueError("No date column found in CSV file. Columns: " + str(list(df.columns)))
 
-# Convert to datetime if not already done
-if date_column != 'CRASH_DATE':
+# Always convert CRASH_DATE to datetime (standardize the column)
+if date_column == 'CRASH_DATE':
+    # Column already has the right name, just convert to datetime
     df['CRASH_DATE'] = pd.to_datetime(df['CRASH_DATE'], errors='coerce')
+elif date_column:
+    # Column has different name, convert and rename
+    df['CRASH_DATE'] = pd.to_datetime(df[date_column], errors='coerce')
+else:
+    raise ValueError("Could not determine date column")
 
 # Extract year from crash date for filtering and time series analysis
 # This allows us to filter by year and create yearly trend visualizations
