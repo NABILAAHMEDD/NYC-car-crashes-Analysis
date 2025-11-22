@@ -133,9 +133,6 @@ def get_dataframe():
     encoding='utf-8',
     encoding_errors='ignore'  # Ignore encoding errors
 )
-            encoding='utf-8',
-            encoding_errors='ignore'  # Ignore encoding errors
-        )
         
         for i, chunk in enumerate(reader):
             chunks.append(chunk)
