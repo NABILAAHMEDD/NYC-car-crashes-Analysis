@@ -195,14 +195,27 @@ def get_dataframe():
     # Cache the dataframe
     _df_cache = df
     return _df_cache
-
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check endpoint - lightweight, doesn't load CSV"""
-    # Check if CSV file exists (without loading it)
+    """Health check endpoint - triggers data loading on first call"""
     csv_exists = os.path.exists(CSV_FILE)
     
-    # Check if dataframe is already loaded (cached)
+    # Trigger lazy load if not already loaded
+    if not _df_cache and csv_exists:
+        try:
+            print("⏳ Health check triggering data load (this may take 30-60 seconds)...")
+            df = get_dataframe()
+            print(f"✅ Data loaded successfully via health check!")
+        except Exception as e:
+            print(f"❌ Failed to load data: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({
+                'status': 'unhealthy',
+                'error': f'Failed to load data: {str(e)}',
+                'csv_file_exists': csv_exists
+            }), 500
+    
     data_loaded = _df_cache is not None
     
     response = {
@@ -211,7 +224,6 @@ def health_check():
         'data_loaded': data_loaded
     }
     
-    # Only load dataframe if already cached (don't trigger lazy load here)
     if data_loaded:
         df = _df_cache
         geo_check = df[['LATITUDE', 'LONGITUDE']].dropna() if 'LATITUDE' in df.columns and 'LONGITUDE' in df.columns else pd.DataFrame()
@@ -603,20 +615,7 @@ def get_data():
 
 # Confirm app is ready (for production with gunicorn, this prints when module loads)
 print("Flask app initialized and ready to serve requests!")
-# Confirm app is ready (for production with gunicorn, this prints when module loads)
-print("Flask app initialized and ready to serve requests!")
 
-# PRELOAD THE DATAFRAME IN PRODUCTION (Railway has enough memory)
-# This ensures the CSV is loaded during startup, not on first request
-if not os.environ.get('FLASK_ENV') == 'development':
-    print("Preloading dataframe for production...")
-    try:
-        df = get_dataframe()
-        print(f"✅ Dataframe preloaded successfully: {len(df)} rows")
-    except Exception as e:
-        print(f"❌ Error preloading dataframe: {e}")
-        import traceback
-        traceback.print_exc()
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='0.0.0.0')
 
