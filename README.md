@@ -77,152 +77,226 @@ The dashboard displays four key summary statistics at the top:
 
 **Note**: These statistics update dynamically based on the selected filters and are recalculated each time you click "Generate Report".
 
+##  Live Deployment
+
+- **Frontend (Vercel)**: [https://nyc-car-crashes-analysis-ggaivve4n-nabilaahmedds-projects.vercel.app/](https://nyc-car-crashes-analysis-ggaivve4n-nabilaahmedds-projects.vercel.app/)
+- **Backend API (Railway)**: [https://nyc-car-crashes-analysis-production-f7fd.up.railway.app](https://nyc-car-crashes-analysis-production-f7fd.up.railway.app)
+- **API Health Check**: [https://nyc-car-crashes-analysis-production-f7fd.up.railway.app/api/health](https://nyc-car-crashes-analysis-production-f7fd.up.railway.app/api/health)
+
 ## Setup Instructions
 
 ### Prerequisites
-- Python 3.9 or higher
+- Python 3.11 or higher
 - Node.js 14 or higher
 - npm or yarn
+- MySQL database (for production) or local MySQL (for local development)
 
-### Backend Setup
+### Local Development Setup
 
-1. Navigate to the backend directory:
+#### Backend Setup (Local)
+
+1. **Navigate to the backend directory:**
 ```bash
 cd backend
 ```
 
-2. Install Python dependencies:
+2. **Install Python dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Ensure `crashes_cleaned.csv` is in the backend folder
+3. **Set up local MySQL database:**
+   - Install MySQL locally or use a cloud MySQL instance
+   - Create a database (e.g., `nyc_crashes`)
+   - Note your MySQL connection details
 
-4. Start the Flask server:
+4. **Configure environment variables for local development:**
+   
+   Create a `.env` file in the `backend` folder (or set environment variables):
+   ```bash
+   # For Windows PowerShell:
+   $env:MYSQLHOST="localhost"
+   $env:MYSQLPORT="3306"
+   $env:MYSQLUSER="root"
+   $env:MYSQLPASSWORD="your_password"
+   $env:MYSQLDATABASE="nyc_crashes"
+   
+   # For Linux/Mac:
+   export MYSQLHOST="localhost"
+   export MYSQLPORT="3306"
+   export MYSQLUSER="root"
+   export MYSQLPASSWORD="your_password"
+   export MYSQLDATABASE="nyc_crashes"
+   ```
+   
+   **OR** use a MySQL connection URL:
+   ```bash
+   # Windows PowerShell:
+   $env:MYSQL_URL="mysql://root:your_password@localhost:3306/nyc_crashes"
+   
+   # Linux/Mac:
+   export MYSQL_URL="mysql://root:your_password@localhost:3306/nyc_crashes"
+   ```
+
+5. **Import data to local MySQL:**
+```bash
+# Make sure crashes_cleaned.csv is in the backend folder
+python import_csv_to_mysql.py
+```
+
+6. **Start the Flask server:**
 ```bash
 python app.py
 ```
 
 The backend will run on `http://localhost:5000`
 
-### Frontend Setup
+**Note for Local Development:** The app automatically detects if you're running locally (no Railway MYSQL_URL) and will use your local MySQL connection. No code changes needed!
 
-1. Navigate to the frontend directory:
+#### Frontend Setup (Local)
+
+1. **Navigate to the frontend directory:**
 ```bash
 cd frontend
 ```
 
-2. Install Node dependencies:
+2. **Install Node dependencies:**
 ```bash
 npm install
 ```
 
-3. Start the React development server:
+3. **Start the React development server:**
 ```bash
 npm start
 ```
 
 The frontend will open automatically at `http://localhost:3000`
 
+**Note:** The frontend automatically uses `http://localhost:5000/api` when running locally (no environment variable needed).
+
 ## Deployment Instructions
 
-### Deploying with Vercel
+### Backend Deployment on Railway
 
-This project uses Vercel for frontend deployment. The backend deployed  on rilway
+1. **Create Railway Account and Project:**
+   - Go to [railway.app](https://railway.app)
+   - Sign up/login with GitHub
+   - Create a new project
+   - Connect your GitHub repository
 
-#### Frontend Deployment on Vercel
+2. **Add MySQL Database Service:**
+   - In your Railway project, click "New" → "Database" → "MySQL"
+   - Railway will automatically create a MySQL database
+   - Note the connection details (automatically set as environment variables)
 
-1. **Prepare for Deployment:**
+3. **Add Backend Service:**
+   - Click "New" → "GitHub Repo" → Select your repository
+   - Railway will detect the backend folder
+
+4. **Configure Backend Service:**
+   - Go to your backend service → Settings
+   - Set **Root Directory** to: `/backend`
+   - The `backend/Procfile` will be automatically detected
+   - Railway will use: `gunicorn app:app --bind 0.0.0.0:$PORT --timeout 600 --workers 1 --preload`
+
+5. **Set Environment Variables:**
+   - Railway automatically sets `MYSQL_URL` when you add a MySQL service
+   - If needed, you can manually set:
+     - `MYSQL_URL` (automatically set by Railway)
+     - Or individual variables: `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, `MYSQLDATABASE`
+
+6. **Import Data to Railway MySQL:**
    ```bash
-   cd frontend
+   cd backend
+   # Set Railway MySQL connection URL
+   $env:MYSQL_URL="mysql://root:YOUR_PASSWORD@YOUR_HOST:YOUR_PORT/railway"
+   # Import all data (set SAMPLE_ROWS=0 or remove it for full import)
+   $env:SAMPLE_ROWS=0
+   python import_csv_to_mysql.py
    ```
-
-2. **Update API URL for Production:**
-   - Edit `frontend/src/App.js`
-   - Change the `API_URL` constant to your production backend URL:
-   ```javascript
-   const API_URL = 'https://your-backend-url.com/api';
-   ```
-
-3. **Deploy to Vercel:**
    
-   **Option A: Using Vercel CLI (Recommended)**
+   Or import a sample first (100 rows):
    ```bash
-   # Install Vercel CLI globally
-   npm install -g vercel
-   
-   # Login to Vercel
-   vercel login
-   
-   # Deploy from frontend directory
-   cd frontend
-   vercel
-   
-   # For production deployment
-   vercel --prod
+   $env:SAMPLE_ROWS=100
+   python import_csv_to_mysql.py
    ```
-   
-   **Option B: Using Vercel Dashboard**
+
+7. **Generate Domain:**
+   - Go to your backend service → Settings → Networking
+   - Click "Generate Domain" or use a custom domain
+   - Copy the Railway URL (e.g., `https://your-app.railway.app`)
+
+8. **Verify Deployment:**
+   - Check logs: Railway Dashboard → Your Service → Deployments → View Logs
+   - Should see: "Flask app initialized with MySQL connection"
+   - Test: Visit `https://your-railway-url.railway.app/api/health`
+
+### Frontend Deployment on Vercel
+
+1. **Create Vercel Account and Project:**
    - Go to [vercel.com](https://vercel.com)
+   - Sign up/login with GitHub
    - Click "New Project"
    - Import your GitHub repository
-   - Set Root Directory to `frontend`
-   - Build Command: `npm run build`
-   - Output Directory: `build`
-   - Add Environment Variables if needed
 
-4. **Vercel Configuration (vercel.json):**
-   Create `frontend/vercel.json`:
-   ```json
-   {
-     "version": 2,
-     "builds": [
-       {
-         "src": "package.json",
-         "use": "@vercel/static-build",
-         "config": {
-           "distDir": "build"
-         }
-       }
-     ],
-     "routes": [
-       {
-         "src": "/(.*)",
-         "dest": "/index.html"
-       }
-     ]
-   }
-   ```
+2. **Configure Project Settings:**
+   - **Root Directory**: Set to `frontend`
+   - **Framework Preset**: React (auto-detected)
+   - **Build Command**: `npm run build` (auto-detected)
+   - **Output Directory**: `build` (auto-detected)
 
-#### Backend Deployment (Separate from Vercel)
+3. **Set Environment Variables:**
+   - Go to Project Settings → Environment Variables
+   - Add:
+     - **Key**: `REACT_APP_API_URL`
+     - **Value**: `https://your-railway-backend-url.railway.app/api`
+     - **Environments**: Production, Preview, Development
+   - Save
 
-Since Vercel is primarily for frontend/static sites, deploy the Flask backend separately:
+4. **Deploy:**
+   - Click "Deploy"
+   - Vercel will automatically build and deploy
+   - Wait for deployment to complete
 
-**Option 1: Railway **
-```bash
-# Install Railway CLI
-npm install -g @railway/cli
+5. **Verify Deployment:**
+   - Visit your Vercel URL
+   - Open browser console (F12)
+   - Should see: `API_URL: https://your-railway-backend-url.railway.app/api`
+   - Test: Generate a report to verify backend connection
 
-# Login and deploy
-railway login
-railway init
-railway up
+### Vercel Configuration
+
+The `frontend/vercel.json` file is already configured:
+```json
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/(.*\\.(js|css|ico|png|jpg|svg|woff|woff2|ttf|eot))",
+      "dest": "/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}
 ```
 
-1. **Update CORS in Backend:**
-   - Edit `backend/app.py`
-   - Update CORS to allow your Vercel domain:
-   ```python
-   CORS(app, origins=["https://your-vercel-app.vercel.app"])
-   ```
-
-2. **Environment Variables:**
-   - In Vercel: Add `REACT_APP_API_URL` if using environment variables
-   - In Backend: Set `FLASK_ENV=production`
-
-3. **File Upload:**
-   - Ensure `crashes_cleaned.csv` is in the backend deployment
-   - For platforms like Railway/Render, upload via dashboard or include in repo
+This ensures static files are served correctly and React Router works properly.
 
 ##  Project Structure
 
