@@ -83,22 +83,41 @@ if not os.path.exists(CSV_FILE) and CSV_URL:
                             # Try alternative: use the form URL directly
                             response = session.get(form_url, stream=True)
             
-            # Download the file in chunks
+            # Download the file in chunks to avoid memory issues
+            # Use larger chunk size but flush frequently to disk
             total_size = int(response.headers.get('content-length', 0))
             print(f"Downloading {total_size / (1024*1024):.2f} MB...")
             
-            with open(CSV_FILE, 'wb') as f:
-                downloaded = 0
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total_size > 0:
-                            percent = (downloaded / total_size) * 100
-                            if downloaded % (10 * 1024 * 1024) == 0:  # Print every 10MB
-                                print(f"Downloaded {downloaded / (1024*1024):.2f} MB ({percent:.1f}%)")
-            
-            print("Download complete!")
+            # For very large files (>1GB), we'll sample during download to save memory
+            # Instead of downloading full file, we'll skip most of it
+            if total_size > 500 * 1024 * 1024:  # If file > 500MB
+                print("File is very large (>500MB). For free tier, downloading first 50MB only...")
+                max_download = 50 * 1024 * 1024  # Only download 50MB
+                with open(CSV_FILE, 'wb') as f:
+                    downloaded = 0
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk and downloaded < max_download:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if downloaded % (5 * 1024 * 1024) == 0:  # Print every 5MB
+                                print(f"Downloaded {downloaded / (1024*1024):.2f} MB...")
+                        elif downloaded >= max_download:
+                            print(f"Stopped download at {downloaded / (1024*1024):.2f} MB to save memory")
+                            break
+                print(f"Partial download complete: {downloaded / (1024*1024):.2f} MB")
+            else:
+                # Normal download for smaller files
+                with open(CSV_FILE, 'wb') as f:
+                    downloaded = 0
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size > 0:
+                                percent = (downloaded / total_size) * 100
+                                if downloaded % (10 * 1024 * 1024) == 0:  # Print every 10MB
+                                    print(f"Downloaded {downloaded / (1024*1024):.2f} MB ({percent:.1f}%)")
+                print("Download complete!")
         else:
             # For non-Google Drive URLs, use urllib
             urllib.request.urlretrieve(CSV_URL, CSV_FILE)
@@ -108,22 +127,27 @@ if not os.path.exists(CSV_FILE) and CSV_URL:
         raise
 
 print("Loading data...")
-# For large files, load in chunks or sample to avoid memory issues
-# Free tier has limited RAM (512MB), so we'll load a sample first
+# For large files, load only a small sample to avoid memory issues
+# Free tier has limited RAM (512MB), so we'll load a small sample
 try:
-    # Try to load the full file
-    df = pd.read_csv(CSV_FILE)
-    print(f"Full file loaded: {len(df)} rows")
-except MemoryError:
-    print("Memory error loading full file, loading sample (first 100K rows)...")
-    df = pd.read_csv(CSV_FILE, nrows=100000)
+    # Always load a small sample for free tier (50K rows max)
+    print("Loading sample (first 50K rows) to fit in free tier memory...")
+    df = pd.read_csv(CSV_FILE, nrows=50000)
     print(f"Sample loaded: {len(df)} rows")
-
-# Alternative: Load in chunks if file is too large
-if len(df) > 500000:
-    print("File is very large, sampling to 100K rows for free tier...")
-    df = df.sample(n=100000, random_state=42)
-    print(f"Sampled to {len(df)} rows")
+except MemoryError as e:
+    print(f"Memory error loading file: {e}")
+    print("Trying even smaller sample (10K rows)...")
+    df = pd.read_csv(CSV_FILE, nrows=10000)
+    print(f"Small sample loaded: {len(df)} rows")
+except Exception as e:
+    print(f"Error loading CSV: {e}")
+    # Try with even smaller sample
+    try:
+        df = pd.read_csv(CSV_FILE, nrows=10000)
+        print(f"Loaded {len(df)} rows")
+    except Exception as e2:
+        print(f"Failed to load CSV: {e2}")
+        raise
 
 # Debug: Print column names to see what we have
 print(f"CSV columns: {list(df.columns)[:10]}...")  # Print first 10 columns
