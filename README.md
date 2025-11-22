@@ -2,7 +2,9 @@
 
 An interactive web application for visualizing and analyzing traffic crash data in New York City. This project integrates crash and person data from NYC Data, providing dynamic filtering, search capabilities, and comprehensive visualizations.
 
-**Repository**: [https://github.com/NABILAAHMEDD/NYC-car-crashes-Analysis](https://github.com/NABILAAHMEDD/NYC-car-crashes-Analysis)
+** Live Website**: [https://nyc-car-crashes-analysis-ggaivve4n-nabilaahmedds-projects.vercel.app/](https://nyc-car-crashes-analysis-ggaivve4n-nabilaahmedds-projects.vercel.app/)
+
+** Repository**: [https://github.com/NABILAAHMEDD/NYC-car-crashes-Analysis](https://github.com/NABILAAHMEDD/NYC-car-crashes-Analysis)
 
 ## Project Overview
 
@@ -57,7 +59,10 @@ Click to dynamically update all visualizations based on selected filters.
 - **Heatmap**: Hour vs Day of Week patterns
 - **Geographic Map**: 
   - Interactive crash location map using Plotly's free scattergeo (no tokens required)
-  - Density-based clustering with color-coded markers (green = low, orange = medium, red = high)
+  - Density-based clustering with color 
+  - Low density areas: Green  and Light Green 
+  - Medium density areas: Orange  and Dark Orange 
+  - High density areas: Red 
   - Marker size proportional to crash density
   - Color scale legend showing density values
   - Detailed hover tooltips with borough, density level, vehicle type, injury type, and time
@@ -65,17 +70,17 @@ Click to dynamically update all visualizations based on selected filters.
 
 ### 5. Summary Statistics Cards
 
-The dashboard displays four key summary statistics at the top:
+Four key metrics are displayed at the top of the dashboard to give you a quick overview:
 
-- **Total Crashes**: The number of unique crash events (distinct COLLISION_IDs) that match the selected filters. This counts crash incidents, not individual people, since one crash can involve multiple people.
+- **Total Crashes**: Shows how many unique crash incidents match your current filters. Each crash is counted once, even if multiple people were involved.
 
-- **Total Persons**: The total number of people involved in crashes that match the selected filters. This counts all person records in the filtered dataset. Since the data integrates crash and person information, one crash can have multiple person records (e.g., driver, passenger, pedestrian), so this number is typically higher than Total Crashes.
+- **Total Persons**: Counts everyone involved in the filtered crashes - drivers, passengers, pedestrians, and cyclists. This number is usually higher than Total Crashes since one accident can involve multiple people.
 
-- **Total Injuries**: The sum of all injuries across all crashes in the filtered dataset. This is calculated by summing the "NUMBER OF PERSONS INJURED" field from all person records.
+- **Total Injuries**: The combined count of all injuries across the filtered crashes.
 
-- **Total Deaths**: The sum of all fatalities across all crashes in the filtered dataset. This is calculated by summing the "NUMBER OF PERSONS KILLED" field from all person records.
+- **Total Deaths**: The combined count of all fatalities in the filtered dataset.
 
-**Note**: These statistics update dynamically based on the selected filters and are recalculated each time you click "Generate Report".
+All statistics update automatically when you apply filters and click "Generate Report".
 
 ##  Live Deployment
 
@@ -151,8 +156,6 @@ python app.py
 
 The backend will run on `http://localhost:5000`
 
-**Note for Local Development:** The app automatically detects if you're running locally (no Railway MYSQL_URL) and will use your local MySQL connection. No code changes needed!
-
 #### Frontend Setup (Local)
 
 1. **Navigate to the frontend directory:**
@@ -178,34 +181,31 @@ The frontend will open automatically at `http://localhost:3000`
 
 ### Backend Deployment on Railway
 
-1. **Create Railway Account and Project:**
-   - Go to [railway.app](https://railway.app)
-   - Sign up/login with GitHub
-   - Create a new project
-   - Connect your GitHub repository
+Here's how I deployed the backend to Railway:
 
-2. **Add MySQL Database Service:**
-   - In your Railway project, click "New" → "Database" → "MySQL"
-   - Railway will automatically create a MySQL database
-   - Note the connection details (automatically set as environment variables)
+1. **First, I created a Railway account and project:**
+   - Went to [railway.app](https://railway.app)
+   - Signed up using my GitHub account
+   - Created a new project and connected my GitHub repository
 
-3. **Add Backend Service:**
-   - Click "New" → "GitHub Repo" → Select your repository
-   - Railway will detect the backend folder
+2. **Then I added a MySQL database:**
+   - In my Railway project, I clicked "New" → "Database" → "MySQL"
+   - Railway automatically created the database and set up the connection details as environment variables
 
-4. **Configure Backend Service:**
-   - Go to your backend service → Settings
-   - Set **Root Directory** to: `/backend`
-   - The `backend/Procfile` will be automatically detected
-   - Railway will use: `gunicorn app:app --bind 0.0.0.0:$PORT --timeout 600 --workers 1 --preload`
+3. **Next, I added the backend service:**
+   - Clicked "New" → "GitHub Repo" → Selected my repository
+   - Railway detected the backend folder automatically
 
-5. **Set Environment Variables:**
-   - Railway automatically sets `MYSQL_URL` when you add a MySQL service
-   - If needed, you can manually set:
-     - `MYSQL_URL` (automatically set by Railway)
-     - Or individual variables: `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, `MYSQLDATABASE`
+4. **I configured the backend service:**
+   - Went to my backend service → Settings
+   - Set the **Root Directory** to `/backend`
+   - Railway automatically detected the `backend/Procfile` and used: `gunicorn app:app --bind 0.0.0.0:$PORT --timeout 600 --workers 1 --preload`
 
-6. **Import Data to Railway MySQL:**
+5. **Environment variables were set automatically:**
+   - Railway automatically set `MYSQL_URL` when I added the MySQL service
+   - I didn't need to manually configure anything, but you can set individual variables if needed: `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, `MYSQLDATABASE`
+
+6. **I imported the data to Railway MySQL:**
    ```bash
    cd backend
    # Set Railway MySQL connection URL
@@ -215,54 +215,54 @@ The frontend will open automatically at `http://localhost:3000`
    python import_csv_to_mysql.py
    ```
    
-   Or import a sample first (100 rows):
+   I tested with a sample first (100 rows) to make sure everything worked:
    ```bash
    $env:SAMPLE_ROWS=100
    python import_csv_to_mysql.py
    ```
 
-7. **Generate Domain:**
-   - Go to your backend service → Settings → Networking
-   - Click "Generate Domain" or use a custom domain
-   - Copy the Railway URL (e.g., `https://your-app.railway.app`)
+7. **I generated a domain:**
+   - Went to my backend service → Settings → Networking
+   - Clicked "Generate Domain"
+   - Copied the Railway URL (e.g., `https://your-app.railway.app`)
 
-8. **Verify Deployment:**
-   - Check logs: Railway Dashboard → Your Service → Deployments → View Logs
-   - Should see: "Flask app initialized with MySQL connection"
-   - Test: Visit `https://your-railway-url.railway.app/api/health`
+8. **Finally, I verified the deployment:**
+   - Checked the logs: Railway Dashboard → My Service → Deployments → View Logs
+   - Confirmed I saw: "Flask app initialized with MySQL connection"
+   - Tested by visiting `https://your-railway-url.railway.app/api/health`
 
 ### Frontend Deployment on Vercel
 
-1. **Create Vercel Account and Project:**
-   - Go to [vercel.com](https://vercel.com)
-   - Sign up/login with GitHub
-   - Click "New Project"
-   - Import your GitHub repository
+Here's how I deployed the frontend to Vercel:
 
-2. **Configure Project Settings:**
-   - **Root Directory**: Set to `frontend`
-   - **Framework Preset**: React (auto-detected)
-   - **Build Command**: `npm run build` (auto-detected)
-   - **Output Directory**: `build` (auto-detected)
+1. **First, I created a Vercel account and project:**
+   - Went to [vercel.com](https://vercel.com)
+   - Signed up using my GitHub account
+   - Clicked "New Project" and imported my GitHub repository
 
-3. **Set Environment Variables:**
-   - Go to Project Settings → Environment Variables
-   - Add:
+2. **I configured the project settings:**
+   - Set **Root Directory** to `frontend`
+   - Vercel auto-detected React as the framework
+   - Build command (`npm run build`) and output directory (`build`) were auto-detected
+
+3. **I set the environment variable:**
+   - Went to Project Settings → Environment Variables
+   - Added:
      - **Key**: `REACT_APP_API_URL`
      - **Value**: `https://your-railway-backend-url.railway.app/api`
-     - **Environments**: Production, Preview, Development
-   - Save
+     - Selected all environments: Production, Preview, Development
+   - Saved the changes
 
-4. **Deploy:**
-   - Click "Deploy"
-   - Vercel will automatically build and deploy
-   - Wait for deployment to complete
+4. **I deployed:**
+   - Clicked "Deploy"
+   - Vercel automatically built and deployed the app
+   - Waited for the deployment to complete
 
-5. **Verify Deployment:**
-   - Visit your Vercel URL
-   - Open browser console (F12)
-   - Should see: `API_URL: https://your-railway-backend-url.railway.app/api`
-   - Test: Generate a report to verify backend connection
+5. **I verified the deployment:**
+   - Visited my Vercel URL
+   - Opened the browser console (F12)
+   - Confirmed I saw: `API_URL: https://your-railway-backend-url.railway.app/api`
+   - Tested by generating a report to verify the backend connection
 
 ### Vercel Configuration
 
@@ -405,13 +405,17 @@ Get sample data for table view
 
 ##  Key Insights
 
-The dashboard reveals several important patterns:
+While working with the dashboard and exploring the data, I noticed some interesting patterns that stood out:
 
-1. **Peak Hours**: Most crashes occur during rush hours (8-9 AM, 5-6 PM)
-2. **Borough Distribution**: Brooklyn and Queens have the highest crash counts
-3. **Contributing Factors**: Driver inattention/distraction is the leading cause
-4. **Seasonal Patterns**: Crashes peak during summer and fall months
-5. **Safety Equipment**: Analysis shows correlation between safety equipment use and injury severity
+1. **Peak Hours**: I found that most crashes happen during the typical rush hours - between 8-9 AM and 5-6 PM. This makes sense since that's when the most traffic is on the roads.
+
+2. **Borough Distribution**: What really caught my attention was that Brooklyn and Queens consistently had the highest number of crashes compared to the other boroughs. Manhattan, despite being busy, actually had fewer incidents.
+
+3. **Contributing Factors**: When I looked at what causes crashes, driver inattention and distraction kept appearing as the top reason. It's a reminder of how important it is to stay focused while driving.
+
+4. **Seasonal Patterns**: I noticed that crashes tend to peak during the summer and fall months. This could be related to more people being on the road during warmer weather or back-to-school traffic.
+
+5. **Safety Equipment**: One thing that really stood out was the clear connection between using safety equipment (like seatbelts and helmets) and the severity of injuries. The data shows that proper safety gear makes a real difference.
 
 
 
