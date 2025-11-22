@@ -198,23 +198,36 @@ def get_dataframe():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
-    df = get_dataframe()
-    # Check geo_data availability
-    geo_check = df[['LATITUDE', 'LONGITUDE']].dropna() if 'LATITUDE' in df.columns and 'LONGITUDE' in df.columns else pd.DataFrame()
+    """Health check endpoint - lightweight, doesn't load CSV"""
+    # Check if CSV file exists (without loading it)
+    csv_exists = os.path.exists(CSV_FILE)
     
-    return jsonify({
+    # Check if dataframe is already loaded (cached)
+    data_loaded = _df_cache is not None
+    
+    response = {
         'status': 'healthy',
-        'total_records': len(df),
-        'columns': len(df.columns),
-        'has_geo_data': len(geo_check) > 0,
-        'geo_data_count': len(geo_check),
-        'required_columns': {
-            'LATITUDE': 'LATITUDE' in df.columns,
-            'LONGITUDE': 'LONGITUDE' in df.columns,
-            'BOROUGH': 'BOROUGH' in df.columns
-        }
-    })
+        'csv_file_exists': csv_exists,
+        'data_loaded': data_loaded
+    }
+    
+    # Only load dataframe if already cached (don't trigger lazy load here)
+    if data_loaded:
+        df = _df_cache
+        geo_check = df[['LATITUDE', 'LONGITUDE']].dropna() if 'LATITUDE' in df.columns and 'LONGITUDE' in df.columns else pd.DataFrame()
+        response.update({
+            'total_records': len(df),
+            'columns': len(df.columns),
+            'has_geo_data': len(geo_check) > 0,
+            'geo_data_count': len(geo_check),
+            'required_columns': {
+                'LATITUDE': 'LATITUDE' in df.columns,
+                'LONGITUDE': 'LONGITUDE' in df.columns,
+                'BOROUGH': 'BOROUGH' in df.columns
+            }
+        })
+    
+    return jsonify(response)
 
 @app.route('/api/filters', methods=['GET'])
 def get_filter_options():
