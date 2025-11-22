@@ -14,6 +14,8 @@ This project fulfills the requirements for **Milestone 1: Cleaning, Integration,
 - **Dynamic Filtering**: Multiple dropdown filters and natural language search
 - **Real-time Updates**: Generate Report button that updates all visualizations
 
+**Colab Notebook**: [https://colab.research.google.com/drive/1Al1659ZqNsxALQQEkykkSo5-7cCleDzU#scrollTo=fQApycfd5gER]
+
 ## Technology Stack
 
 ### Backend
