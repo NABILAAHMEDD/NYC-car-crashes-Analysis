@@ -2,7 +2,7 @@
 
 An interactive web application for visualizing and analyzing traffic crash data in New York City. This project integrates crash and person data from NYC Data, providing dynamic filtering, search capabilities, and comprehensive visualizations.
 
-** Live Website**: [https://nyc-car-crashes-analysis-ggaivve4n-nabilaahmedds-projects.vercel.app/](https://nyc-car-crashes-analysis-ggaivve4n-nabilaahmedds-projects.vercel.app/)
+** Live Website**: [https://nyc-car-crashes-analysis.vercel.app/](https://nyc-car-crashes-analysis.vercel.app/)
 
 ** Repository**: [https://github.com/NABILAAHMEDD/NYC-car-crashes-Analysis](https://github.com/NABILAAHMEDD/NYC-car-crashes-Analysis)
 
