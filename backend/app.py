@@ -603,7 +603,20 @@ def get_data():
 
 # Confirm app is ready (for production with gunicorn, this prints when module loads)
 print("Flask app initialized and ready to serve requests!")
+# Confirm app is ready (for production with gunicorn, this prints when module loads)
+print("Flask app initialized and ready to serve requests!")
 
+# PRELOAD THE DATAFRAME IN PRODUCTION (Railway has enough memory)
+# This ensures the CSV is loaded during startup, not on first request
+if not os.environ.get('FLASK_ENV') == 'development':
+    print("Preloading dataframe for production...")
+    try:
+        df = get_dataframe()
+        print(f"✅ Dataframe preloaded successfully: {len(df)} rows")
+    except Exception as e:
+        print(f"❌ Error preloading dataframe: {e}")
+        import traceback
+        traceback.print_exc()
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='0.0.0.0')
 
