@@ -113,30 +113,23 @@ def get_dataframe():
     start_time = datetime.now()
     
     try:
-        # Load CSV in chunks with aggressive error handling
         chunks = []
-        chunk_size = 50000  # Smaller chunks = faster
+        chunk_size = 50000
         
         print(f"Reading CSV in chunks of {chunk_size} rows...")
         
-        # Use iterator with better error handling
         reader = pd.read_csv(
             CSV_FILE, 
             chunksize=chunk_size,
-            engine='python',  # Python engine is more forgiving
-            on_bad_lines='skip',  # Skip bad lines
-            reader = pd.read_csv(
-    CSV_FILE, 
-    chunksize=chunk_size,
-    engine='python',  # Python engine is more forgiving
-    on_bad_lines='skip',  # Skip bad lines
-    encoding='utf-8',
-    encoding_errors='ignore'  # Ignore encoding errors
-)
+            engine='python',
+            on_bad_lines='skip',
+            encoding='utf-8',
+            encoding_errors='ignore'
+        )
         
         for i, chunk in enumerate(reader):
             chunks.append(chunk)
-            if (i + 1) % 20 == 0:  # Print every 20 chunks (1M rows)
+            if (i + 1) % 20 == 0:
                 elapsed = (datetime.now() - start_time).total_seconds()
                 print(f"  Loaded {i + 1} chunks ({(i + 1) * chunk_size} rows) in {elapsed:.1f}s...")
         
@@ -151,10 +144,8 @@ def get_dataframe():
         traceback.print_exc()
         raise
 
-    # Rest of your code stays the same...
     print(f"CSV columns: {list(df.columns)[:10]}...")
     
-    # Date column detection
     date_column = None
     if 'CRASH_DATE' in df.columns:
         date_column = 'CRASH_DATE'
@@ -170,7 +161,7 @@ def get_dataframe():
             date_column = date_cols[0]
             print(f"Using date column: {date_column}")
         else:
-            raise ValueError("No date column found in CSV file")
+            raise ValueError("No date column found")
 
     if date_column == 'CRASH_DATE':
         df['CRASH_DATE'] = pd.to_datetime(df['CRASH_DATE'], errors='coerce')
@@ -184,12 +175,10 @@ def get_dataframe():
 
     required_geo_columns = ['LATITUDE', 'LONGITUDE', 'BOROUGH']
     missing_columns = [col for col in required_geo_columns if col not in df.columns]
-    if missing_columns:
-        print(f"⚠️ WARNING: Missing required columns: {missing_columns}")
-    else:
+    if not missing_columns:
         geo_check = df[['LATITUDE', 'LONGITUDE']].dropna()
         if len(geo_check) > 0:
-            print(f"✅ Geo data: {len(geo_check)} records with coordinates")
+            print(f"✅ Geo data: {len(geo_check)} records")
     
     _df_cache = df
     return _df_cache
