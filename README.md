@@ -344,7 +344,6 @@ nyc-crash-dashboard/
 ### Production (Railway MySQL)
 - The app automatically uses Railway's MySQL database
 - Connection is configured via Railway's `MYSQL_URL` environment variable
-- No code changes needed for Railway deployment
 
 ### Local Development
 - Set up a local MySQL database
